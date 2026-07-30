@@ -46,15 +46,32 @@ the user the host is unsupported for automated PR creation.
 
 ### Base branch
 
-In order, first that resolves:
+**Never guess this from a hardcoded list.** Real orgs have default branches like `development`,
+`developer`, `devoloper`, `DEV`, `Development`, even `v1/development` — a `main`/`master`/`develop`
+ladder is wrong more often than it's right, and targeting the wrong base silently opens a PR with
+the wrong diff. Resolve it, in order, and stop at the first that answers:
 
-1. `git symbolic-ref --quiet refs/remotes/origin/HEAD` → strip `refs/remotes/origin/`
-2. `git rev-parse --verify --quiet origin/main` → `main`
-3. `git rev-parse --verify --quiet origin/master` → `master`
-4. `git rev-parse --verify --quiet origin/develop` → `develop`
+1. **Local tracking ref** — `git symbolic-ref --quiet refs/remotes/origin/HEAD`, then strip
+   `refs/remotes/origin/`. Set in most clones; use it.
+2. **Ask the platform.** Authoritative, and worth the round trip:
 
-If a repo convention says PRs target `develop` (see `CLAUDE.md`, `CONTRIBUTING.md`), prefer it.
-If still ambiguous, ask.
+```bash
+# GitHub
+gh repo view --json defaultBranchRef --jq .defaultBranchRef.name
+
+# Azure DevOps — strip the refs/heads/ prefix from the answer
+az repos show --organization "https://dev.azure.com/<org>" --project "<project>" \
+  --repository "<repo>" --query defaultBranch -o tsv
+```
+
+   Cache it locally so later runs skip the call: `git remote set-head origin <branch>`.
+3. **Repo convention** — an explicit base named in `CLAUDE.md`, `AGENTS.md` or `CONTRIBUTING.md`
+   overrides the platform default when the two disagree.
+4. Only if all of the above fail: check which of `origin/main`, `origin/master`,
+   `origin/development`, `origin/develop` exists — and say which one you picked and why.
+
+Branch names are case-sensitive and may contain `/`. Quote them, and never "normalise" the casing
+of one you were told. If two candidates exist and nothing above disambiguates, ask.
 
 ### Hard guardrails
 
@@ -235,7 +252,8 @@ Body:
 - <how it was verified, or "not run: <reason>">
 ```
 
-Write the body to a temp file rather than inlining a multi-line string.
+For GitHub, write the body to a temp file and pass `--body-file` rather than inlining a multi-line
+string. Azure DevOps takes it as one argument per line instead — see below.
 
 ### GitHub
 
@@ -269,12 +287,14 @@ az repos pr create \
   --source-branch "<branch>" \
   --target-branch "<base>" \
   --title "<title>" \
-  --description @<bodyfile> \
+  --description "## Summary" "- first point" "" "## Test plan" "- how it was checked" \
   --output json
 ```
 
-- `--description @<file>` reads the file; if the installed extension version rejects `@file`,
-  fall back to passing the body as repeated `--description "line" "line"` values.
+- **`--description` takes one argument per line**, not a file and not one string with `\n` in it —
+  `az repos pr create --help` states "Each value sent to this arg will be a new line". Pass an empty
+  string `""` where you want a blank line. Markdown is allowed. A single `--description "a\nb"`
+  renders the literal `\n`, so don't.
 - The URL to report is `repository.webUrl` + `/pullrequest/` + `pullRequestId`, i.e.
   `https://dev.azure.com/<org>/<project>/_git/<repo>/pullrequest/<id>`.
 - Opt-in flags, only when the user asks: `--draft true`, `--auto-complete true`,
