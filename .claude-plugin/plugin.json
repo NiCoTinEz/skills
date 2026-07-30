@@ -1,0 +1,26 @@
+{
+  "$schema": "https://anthropic.com/claude-code/plugin.schema.json",
+  "name": "nicotinez-skills",
+  "version": "0.1.0",
+  "description": "git-flow: branch / commit / push / PR on GitHub (gh) or Azure DevOps (az repos), platform auto-detected from the origin remote, Conventional Commits, type/short-slug branches.",
+  "author": {
+    "name": "Sukoljesd Seesuwankul",
+    "url": "https://github.com/NiCoTinEz"
+  },
+  "repository": "https://github.com/NiCoTinEz/skills",
+  "license": "MIT",
+  "keywords": [
+    "git",
+    "github",
+    "azure-devops",
+    "pull-request",
+    "conventional-commits"
+  ],
+  "skills": [
+    "./skills/branch-commit-push-pr",
+    "./skills/branch-commit-push",
+    "./skills/branch-commit",
+    "./skills/commit-push-pr",
+    "./skills/commit-push"
+  ]
+}

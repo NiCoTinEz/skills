@@ -1,0 +1,23 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "nicotinez-skills",
+  "description": "Personal agent skills.",
+  "owner": {
+    "name": "Sukoljesd Seesuwankul",
+    "url": "https://github.com/NiCoTinEz"
+  },
+  "plugins": [
+    {
+      "name": "nicotinez-skills",
+      "source": "./",
+      "description": "git-flow: branch / commit / push / PR skills for GitHub and Azure DevOps, platform auto-detected from the origin remote.",
+      "category": "workflow",
+      "keywords": [
+        "git",
+        "github",
+        "azure-devops",
+        "pull-request"
+      ]
+    }
+  ]
+}

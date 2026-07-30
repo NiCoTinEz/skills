@@ -1,0 +1,4 @@
+interface:
+  display_name: "Commit Push"
+  short_description: "Commit on this branch and push it"
+  default_prompt: "Use $commit-push to commit the current work on this branch and push it."
