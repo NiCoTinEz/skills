@@ -15,7 +15,7 @@ Run these first, in one batch:
 ```bash
 git rev-parse --show-toplevel
 git status --porcelain=v1 --branch
-git remote get-url origin
+git remote -v
 git log --oneline -5
 ```
 
@@ -27,33 +27,50 @@ Derive:
 | current branch | `## <branch>...` line of `git status --branch` |
 | dirty? | any porcelain lines |
 | staged? | porcelain lines whose **first** column is not space/`?` |
+| `<remote>` | see *Platform detection* |
 | platform | see *Platform detection* |
 | base branch | see *Base branch* |
 
+Everything below writes `<remote>` where a remote name is needed. **It is usually `origin`, but
+resolve it once here and then substitute the name you resolved into every later command** — base
+resolution, branch creation, push and PR all have to agree on one remote. Never hardcode `origin`
+after this point.
+
 ### Platform detection
 
-Match the `origin` URL:
+Match the URL of `origin`, i.e. `git remote get-url origin`:
 
-| Origin contains | Platform | PR tool |
+| URL contains | Platform | PR tool |
 |---|---|---|
 | `github.com` | GitHub | `gh` |
 | `dev.azure.com`, `.visualstudio.com`, `ssh.dev.azure.com` | Azure DevOps | `az repos` |
 | neither | unknown | see below |
 
-Unknown host: check other remotes (`git remote -v`). If a GitHub/ADO remote exists under a
-different name, use it and say which. Otherwise complete every stage except the PR, and tell
-the user the host is unsupported for automated PR creation.
+`<remote>` is `origin` when it matched.
+
+Unknown or absent `origin`: look through `git remote -v` for a remote whose URL does match. If
+exactly one does, set `<remote>` to **that remote's name** and say which one you chose and why —
+and remember that `git push`, the `<remote>/HEAD` lookup and the PR's source branch must all use
+that name. If several match, ask which to use. If none match, complete every stage except the PR
+against `<remote>`, and tell the user the host is unsupported for automated PR creation.
 
 ### Base branch
 
 **Never guess this from a hardcoded list.** Real orgs have default branches like `development`,
 `developer`, `devoloper`, `DEV`, `Development`, even `v1/development` — a `main`/`master`/`develop`
 ladder is wrong more often than it's right, and targeting the wrong base silently opens a PR with
-the wrong diff. Resolve it, in order, and stop at the first that answers:
+the wrong diff.
 
-1. **Local tracking ref** — `git symbolic-ref --quiet refs/remotes/origin/HEAD`, then strip
-   `refs/remotes/origin/`. Set in most clones; use it.
-2. **Ask the platform.** Authoritative, and worth the round trip:
+Resolve in this order, stopping at the first that answers:
+
+1. **Repo convention — check this first, not last.** If `CLAUDE.md`, `AGENTS.md` or
+   `CONTRIBUTING.md` names the branch PRs must target, that is the answer, and the platform default
+   does **not** override it. Plenty of repos default to `main` on the server while requiring PRs
+   into an integration branch, so a lookup below that "succeeds" would quietly hide the real
+   convention. If a convention names a base, stop here.
+2. **Local tracking ref** — `git symbolic-ref --quiet refs/remotes/<remote>/HEAD`, then strip
+   `refs/remotes/<remote>/`. Set in most clones; use it.
+3. **Ask the platform.** Authoritative, and worth the round trip:
 
 ```bash
 # GitHub
@@ -64,11 +81,11 @@ az repos show --organization "https://dev.azure.com/<org>" --project "<project>"
   --repository "<repo>" --query defaultBranch -o tsv
 ```
 
-   Cache it locally so later runs skip the call: `git remote set-head origin <branch>`.
-3. **Repo convention** — an explicit base named in `CLAUDE.md`, `AGENTS.md` or `CONTRIBUTING.md`
-   overrides the platform default when the two disagree.
-4. Only if all of the above fail: check which of `origin/main`, `origin/master`,
-   `origin/development`, `origin/develop` exists — and say which one you picked and why.
+   Cache it locally so later runs skip the call: `git remote set-head <remote> <branch>`.
+4. Only if all of the above fail: check which of `<remote>/main`, `<remote>/master`,
+   `<remote>/development`, `<remote>/develop` exists — and say which one you picked and why.
+
+Call the result `<base>`. Every later stage uses `<base>`, never a literal branch name.
 
 Branch names are case-sensitive and may contain `/`. Quote them, and never "normalise" the casing
 of one you were told. If two candidates exist and nothing above disambiguates, ask.
@@ -91,7 +108,7 @@ Refuse and explain rather than working around any of these:
 - **Pre-existing staged changes you did not intend to include** — list them and confirm before
   committing.
 
-### Tool preflight (only when the skill reaches stage 3 or 4)
+### Tool preflight (only when the skill reaches stage 4)
 
 **GitHub:**
 
@@ -160,16 +177,16 @@ Name format: **`<type>/<short-slug>`**
 Procedure:
 
 1. Read the diff (`git diff`, plus `git diff --staged` if anything is staged) to pick type + slug.
-2. If the branch already exists locally or on `origin`, append `-2`, `-3`, … or pick a better slug.
+2. If the branch already exists locally or on `<remote>`, append `-2`, `-3`, … or pick a better slug.
 3. Create from an up-to-date base:
 
 ```bash
-git fetch origin --quiet
-git switch --create <type>/<slug> origin/<base>
+git fetch <remote> --quiet
+git switch --create <type>/<slug> <remote>/<base>
 ```
 
    **Exception — uncommitted work must come along.** If the tree is dirty, do *not* rebase onto
-   `origin/<base>`; branch off the current HEAD so the working tree is preserved:
+   `<remote>/<base>`; branch off the current HEAD so the working tree is preserved:
 
 ```bash
 git switch --create <type>/<slug>
@@ -208,16 +225,40 @@ git diff --staged --stat
    - Match the repo's existing style if `git log` shows a different convention — follow the repo,
      mention the deviation.
 
-3. Commit via a heredoc so multi-line messages survive PowerShell quoting:
+3. Commit. **Write the message to a file and pass `-F`** — a multi-line message inlined with `-m`
+   gets mangled differently by every shell, and a Bash heredoc is a syntax error in PowerShell,
+   which is the shell some agents are configured with. Use the form that matches the shell you are
+   actually running in, then delete the file:
+
+   *Bash / zsh:*
 
 ```bash
-git commit -F - <<'EOF'
+cat > "$(git rev-parse --git-dir)/COMMIT_MSG_TMP" <<'EOF'
 feat(cache): add retry on transient Redis failure
 
 - wrap GetAsync in Polly retry, 3 attempts, exponential backoff
 - transient socket errors were surfacing as 500s
 EOF
+git commit -F "$(git rev-parse --git-dir)/COMMIT_MSG_TMP"
+rm -f "$(git rev-parse --git-dir)/COMMIT_MSG_TMP"
 ```
+
+   *PowerShell:* a single-quoted here-string, whose closing `'@` must sit at column 0:
+
+```powershell
+$msg = @'
+feat(cache): add retry on transient Redis failure
+
+- wrap GetAsync in Polly retry, 3 attempts, exponential backoff
+- transient socket errors were surfacing as 500s
+'@
+$f = Join-Path (git rev-parse --git-dir) COMMIT_MSG_TMP
+Set-Content -Path $f -Value $msg -Encoding utf8
+git commit -F $f
+Remove-Item $f
+```
+
+   The file goes inside `.git/`, so it can never be picked up as a repo change.
 
 4. If a hook rejects the commit, fix the underlying problem or report it. Never `--no-verify`.
 5. Multiple unrelated logical changes in the tree → prefer several commits, or ask.
@@ -225,11 +266,11 @@ EOF
 ## Stage 3 — Push
 
 ```bash
-git push --set-upstream origin HEAD
+git push --set-upstream <remote> HEAD
 ```
 
 - Already has upstream → plain `git push`.
-- **Rejected as non-fast-forward:** stop. Report it and offer `git pull --rebase origin <branch>`
+- **Rejected as non-fast-forward:** stop. Report it and offer `git pull --rebase <remote> <branch>`
   as a *suggestion*. Do not force-push, do not rebase without approval.
 - Currently on the default/protected branch (only possible for the `commit-*` skills): warn
   clearly that this pushes straight to `<base>` and get explicit confirmation before pushing.
@@ -266,7 +307,7 @@ Opt-in flags, only when the user asks: `--draft`, `--reviewer <user>`, `--assign
 
 ### Azure DevOps
 
-Parse the org / project / repo out of the origin URL:
+Parse the org / project / repo out of the `<remote>` URL:
 
 | URL shape | org | project | repo |
 |---|---|---|---|
@@ -309,7 +350,7 @@ One compact block. No prose padding:
 platform  GitHub | Azure DevOps
 branch    feat/add-cache-retry  (from main)
 commit    a1b2c3d  feat(cache): add retry on transient Redis failure
-push      origin/feat/add-cache-retry
+push      <remote>/feat/add-cache-retry
 pr        https://github.com/owner/repo/pull/42
 ```
 

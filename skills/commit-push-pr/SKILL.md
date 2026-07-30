@@ -25,9 +25,12 @@ Stage summary for this skill:
    instead of creating a duplicate.
 5. **Report** — platform / commit / push / pr lines.
 
-**On the default branch this skill is a trap.** If the current branch is the repo default
-(`main`/`master`/`develop`), a PR cannot target itself: stop before committing, say so, and offer
-`branch-commit-push-pr` instead. Only proceed if the user explicitly insists on a different base.
+**On the default branch this skill is a trap.** Resolve `<base>` as stage 0 describes, then compare
+the current branch against it — do not test against a guessed list of names like
+`main`/`master`/`develop`, which misses the `development`, `DEV` and `v1/development` defaults real
+repos use. If the current branch **is** `<base>`, a PR cannot target itself: stop before committing,
+say so, and offer `branch-commit-push-pr` instead. Only proceed if the user explicitly insists on a
+different base.
 
 If a CLI or the `azure-devops` extension is missing, **ask the user to install it with the exact
 command and stop there** — never install it yourself. Report which stages already completed.
