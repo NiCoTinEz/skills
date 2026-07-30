@@ -22,8 +22,11 @@ Stage summary for this skill:
    force-push or rebase without approval.
 5. **Report** — commit and push lines.
 
-**Pushing to the default branch.** If the current branch is the repo default
-(`main`/`master`/`develop`), warn plainly that this pushes straight to it and get explicit
-confirmation before the push. The commit may be made first; the push must wait for the answer.
+**Pushing to the default branch.** Resolve `<base>` as stage 0 describes and compare the current
+branch against it — a guessed list like `main`/`master`/`develop` misses the `development`, `DEV`
+and `v1/development` defaults real repos use, and a missed match means pushing to a protected branch
+with no warning at all. If the current branch **is** `<base>`, warn plainly that this pushes
+straight to it and get explicit confirmation before the push. The commit may be made first; the push
+must wait for the answer.
 
 Arguments the user may pass: a commit subject. Honour it over the derived default.

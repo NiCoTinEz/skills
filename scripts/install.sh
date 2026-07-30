@@ -73,6 +73,26 @@ wanted() {
   case ",$tools," in *",$1,"*) return 0 ;; *) return 1 ;; esac
 }
 
+# Reject unknown --tool names up front. Without this a typo silently installs nothing (or, mixed
+# with a valid name, silently installs less than asked) and still exits 0 — mirrors the PowerShell
+# installer's ValidateSet.
+known_tools="all claude codex opencode agents"
+if [ "$tools" != all ]; then
+  bad=""
+  old_ifs=$IFS
+  IFS=','
+  for t in $tools; do
+    [ -n "$t" ] || continue
+    case " $known_tools " in *" $t "*) ;; *) bad="$bad $t" ;; esac
+  done
+  IFS=$old_ifs
+  if [ -n "$bad" ]; then
+    echo "unknown --tool value(s):$bad" >&2
+    echo "valid values: ${known_tools// /, }" >&2
+    exit 1
+  fi
+fi
+
 skill_dirs=()
 for d in "$skills_root"/*/; do
   [ -f "$d/SKILL.md" ] || continue
