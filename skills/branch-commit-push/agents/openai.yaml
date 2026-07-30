@@ -1,0 +1,4 @@
+interface:
+  display_name: "Branch Commit Push"
+  short_description: "Branch, commit and push with upstream — no pull request"
+  default_prompt: "Use $branch-commit-push to put this work on a new branch and push it, without opening a PR."

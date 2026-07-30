@@ -1,0 +1,7 @@
+.DS_Store
+Thumbs.db
+*.log
+node_modules/
+
+# Written by `npx skills add` into whatever project it installs to. Consumer state, not ours.
+skills-lock.json

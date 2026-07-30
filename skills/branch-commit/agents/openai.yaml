@@ -1,0 +1,4 @@
+interface:
+  display_name: "Branch Commit"
+  short_description: "Branch and commit locally — nothing leaves the machine"
+  default_prompt: "Use $branch-commit to put this work on a new branch and commit it locally."

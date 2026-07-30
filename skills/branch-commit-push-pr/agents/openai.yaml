@@ -1,0 +1,4 @@
+interface:
+  display_name: "Branch Commit Push PR"
+  short_description: "Branch, commit, push and open a PR — GitHub or Azure DevOps"
+  default_prompt: "Use $branch-commit-push-pr to put this work on a new branch and open a pull request."
