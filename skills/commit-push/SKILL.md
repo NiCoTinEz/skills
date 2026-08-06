@@ -4,7 +4,7 @@ description: >
   Commit on the current branch with a Conventional Commits message and push it — no new branch, no
   pull request. Works on GitHub and Azure DevOps repos. Use when the user says "commit push",
   "commit and push", "push this up", or invokes /commit-push.
-allowed-tools: Bash, Read, Glob, Grep
+allowed-tools: Bash, PowerShell, Read, Glob, Grep
 ---
 
 Run stages **0 → 2 → 3 → 5** of the shared workflow. **Skip stage 1** (never create or switch
@@ -16,10 +16,11 @@ Do not improvise these from memory.
 
 Stage summary for this skill:
 
-0. **Preflight** — repo state, guardrails. No CLI check needed.
+0. **Preflight** — repo state, `<remote>`, `<base>`, guardrails. No CLI check needed. `<base>` is
+   needed even here: the default-branch warning below compares against it.
 2. **Commit** — stage deliberately, Conventional Commits, no AI attribution.
-3. **Push** — `git push --set-upstream origin HEAD`. Non-fast-forward → stop and report; never
-   force-push or rebase without approval.
+3. **Push** — `git push --set-upstream <remote> HEAD`, using the remote resolved in stage 0.
+   Non-fast-forward → stop and report; never force-push or rebase without approval.
 5. **Report** — commit and push lines.
 
 **Pushing to the default branch.** Resolve `<base>` as stage 0 describes and compare the current

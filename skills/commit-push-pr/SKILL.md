@@ -5,7 +5,7 @@ description: >
   detected from the origin remote (gh for github.com, az repos for dev.azure.com). Use when the
   user says "commit push pr", "PR this branch", "open a PR from here", "commit and raise a PR", or
   invokes /commit-push-pr.
-allowed-tools: Bash, Read, Glob, Grep
+allowed-tools: Bash, PowerShell, Read, Glob, Grep
 ---
 
 Run stages **0 → 2 → 3 → 4 → 5** of the shared workflow. **Skip stage 1** — commit on the branch
@@ -20,7 +20,7 @@ Stage summary for this skill:
 
 0. **Preflight** — repo state, platform, base branch, guardrails, `gh`/`az` tool check.
 2. **Commit** — stage deliberately, Conventional Commits, no AI attribution.
-3. **Push** — `git push --set-upstream origin HEAD`.
+3. **Push** — `git push --set-upstream <remote> HEAD`, using the remote resolved in stage 0.
 4. **PR** — `gh pr create` or `az repos pr create`. Existing PR for this branch → report its URL
    instead of creating a duplicate.
 5. **Report** — platform / commit / push / pr lines.

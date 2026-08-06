@@ -278,7 +278,25 @@ git push --set-upstream <remote> HEAD
 ## Stage 4 — Pull request
 
 Skip if a PR for this branch already exists — fetch and report its URL instead of creating a
-duplicate (`gh pr view --json url,state`; `az repos pr list --source-branch <branch>`).
+duplicate:
+
+```bash
+# GitHub — defaults to the current branch
+gh pr view --json url,state
+```
+
+```bash
+# Azure DevOps — org / project / repo parsed as the Azure DevOps section below describes.
+# `az repos pr list` needs them explicitly unless `az devops configure --defaults` is set,
+# so pass the same three values the create call uses.
+az repos pr list \
+  --organization "https://dev.azure.com/<org>" \
+  --project "<project>" \
+  --repository "<repo>" \
+  --source-branch "<branch>" \
+  --status active \
+  --output json
+```
 
 Title = the commit subject (drop the `<type>(<scope>):` prefix only if the platform convention
 in the repo does). Multiple commits → one summarising title.
