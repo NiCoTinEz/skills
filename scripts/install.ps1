@@ -61,6 +61,10 @@ $home_ = $HOME ?? $env:USERPROFILE
 $codexHome = $env:CODEX_HOME ?? (Join-Path $home_ '.codex')
 $xdgConfig = $env:XDG_CONFIG_HOME ?? (Join-Path $home_ '.config')
 
+# Dropped into every -Mode copy install, read back by -Uninstall. Same name in install.sh, so
+# either script can clean up after the other.
+$marker = '.installed-from'
+
 # Paths mirror what `npx skills add` writes, so a skill installed that way and one installed from
 # a clone land in the same place instead of two competing copies. Codex and OpenCode
 # both use .agents/skills at project scope — the dedupe below stops that installing three times.
@@ -118,10 +122,22 @@ foreach ($target in $targets) {
 
     if ($Uninstall) {
       if (-not (Test-Path $link)) { continue }
-      # Remove the junction/symlink itself, never its target contents.
       $item = Get-Item $link -Force
-      if ($item.LinkType) { $item.Delete() }
-      else { Remove-Item $link -Recurse -Force }
+      if ($item.LinkType) {
+        # Remove the junction/symlink itself, never its target contents.
+        $item.Delete()
+      }
+      elseif ((Test-Path (Join-Path $link $marker)) -or $Force) {
+        # Our own -Mode copy install (marker present), or the user insisted.
+        Remove-Item $link -Recurse -Force
+      }
+      else {
+        # A plain directory with no marker may be a skill the user wrote by hand that happens to
+        # share the name. Never delete it on the strength of its name alone.
+        Write-Warning "kept, not installed by this script (use -Force to delete anyway): $link"
+        $skipped++
+        continue
+      }
       Write-Host "removed  $link" -ForegroundColor Yellow
       $done++
       continue
@@ -138,7 +154,12 @@ foreach ($target in $targets) {
         $skipped++
         continue
       }
-      if (-not $Force) {
+      # A marked copy from an earlier -Mode copy run is also ours — refresh it rather than demanding
+      # -Force for a directory this script wrote.
+      $markerPath = Join-Path $link $marker
+      $isOurCopy = -not $existing.LinkType -and (Test-Path $markerPath) -and
+                   ((Get-Content $markerPath -Raw).Trim() -eq $skillDir.FullName)
+      if (-not $Force -and -not $isOurCopy) {
         Write-Warning "exists, not overwriting (use -Force): $link"
         $skipped++
         continue
@@ -153,6 +174,8 @@ foreach ($target in $targets) {
     }
     else {
       Copy-Item $skillDir.FullName $link -Recurse
+      # Marker so -Uninstall can tell our copy from a skill the user wrote themselves.
+      Set-Content -Path (Join-Path $link $marker) -Value $skillDir.FullName -Encoding utf8
       Write-Host "copied   $link" -ForegroundColor Green
     }
     $done++

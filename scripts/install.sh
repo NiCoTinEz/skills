@@ -11,6 +11,9 @@
 # Flags: --tool all|claude|codex|opencode|agents (comma-separated)  --skill <names>
 #        --mode link|copy  --scope user|project  --project <path>  --force  --uninstall
 #        -h, --help
+#
+# --uninstall removes symlinks and copies this script made. A plain directory it did not install is
+# kept and reported; --force deletes that too.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -55,6 +58,10 @@ fi
 codex_home="${CODEX_HOME:-$HOME/.codex}"
 xdg_config="${XDG_CONFIG_HOME:-$HOME/.config}"
 
+# Dropped into every --mode copy install, read back by --uninstall. Same name in install.ps1, so
+# either script can clean up after the other.
+marker=".installed-from"
+
 # Paths mirror what `npx skills add` writes, so a skill installed that way and one installed from
 # a clone land in the same place instead of two competing copies. Codex and OpenCode
 # both use .agents/skills at project scope — the dedupe below stops that installing three times.
@@ -93,10 +100,36 @@ if [ "$tools" != all ]; then
   fi
 fi
 
-skill_dirs=()
+available=()
 for d in "$skills_root"/*/; do
   [ -f "$d/SKILL.md" ] || continue
-  name=$(basename "$d")
+  available+=("$(basename "$d")")
+done
+[ ${#available[@]} -gt 0 ] || { echo "no skills found under $skills_root" >&2; exit 1; }
+
+# Reject unknown --skill names up front, same reasoning as --tool above: mixed with a valid name a
+# typo would otherwise install less than asked and still exit 0. Mirrors install.ps1's throw.
+if [ -n "$skills" ]; then
+  # Join under the default IFS — "${available[*]}" separates on IFS's first char, so building this
+  # after the IFS=',' below would produce a comma-joined string that never matches.
+  known_skills=" ${available[*]} "
+  bad=""
+  old_ifs=$IFS
+  IFS=','
+  for s in $skills; do
+    [ -n "$s" ] || continue
+    case "$known_skills" in *" $s "*) ;; *) bad="$bad $s" ;; esac
+  done
+  IFS=$old_ifs
+  if [ -n "$bad" ]; then
+    echo "unknown skill(s):$bad" >&2
+    echo "available: ${available[*]}" >&2
+    exit 1
+  fi
+fi
+
+skill_dirs=()
+for name in "${available[@]}"; do
   if [ -n "$skills" ]; then
     case ",$skills," in *",$name,"*) ;; *) continue ;; esac
   fi
@@ -134,6 +167,14 @@ while IFS='|' read -r name user_dir project_sub; do
 
     if [ "$uninstall" -eq 1 ]; then
       [ -e "$link" ] || [ -L "$link" ] || continue
+      # A symlink is unambiguously ours. A plain directory is either a --mode copy install (which
+      # carries the marker) or a skill the user wrote by hand that happens to share the name —
+      # never rm -rf the latter on the strength of its name alone.
+      if [ ! -L "$link" ] && [ ! -f "$link/$marker" ] && [ "$force" -eq 0 ]; then
+        echo "kept $link: not installed by this script (use --force to delete anyway)" >&2
+        skipped=$((skipped + 1))
+        continue
+      fi
       rm -rf -- "$link"   # removes the symlink itself, not its target
       echo "removed  $link"
       done_count=$((done_count + 1))
@@ -149,19 +190,33 @@ while IFS='|' read -r name user_dir project_sub; do
     fi
 
     if [ -e "$link" ] || [ -L "$link" ]; then
-      if [ "$force" -eq 0 ]; then
+      # Already ours from an earlier run — a --mode copy, or a link-mode run in a shell that could
+      # not symlink. Refresh it instead of demanding --force for a directory this script wrote.
+      if [ -f "$link/$marker" ] && [ "$(cat "$link/$marker")" = "$src" ]; then
+        rm -rf -- "$link"
+      elif [ "$force" -eq 0 ]; then
         echo "exists, not overwriting (use --force): $link" >&2
         skipped=$((skipped + 1))
         continue
+      else
+        rm -rf -- "$link"
       fi
-      rm -rf -- "$link"
     fi
 
     if [ "$mode" = link ]; then
       ln -s "$src" "$link"
-      echo "linked   $link"
+      if [ -L "$link" ]; then
+        echo "linked   $link"
+      else
+        # git-bash with MSYS winsymlinks unset deep-copies instead of linking, silently. Say so —
+        # a `git pull` in this repo will not reach it — and mark it so --uninstall knows it is ours.
+        printf '%s\n' "$src" > "$link/$marker"
+        echo "copied   $link  (this shell cannot create symlinks — snapshot, not live-updating)"
+      fi
     else
       cp -R "$src" "$link"
+      # Marker so --uninstall can tell our copy from a skill the user wrote themselves.
+      printf '%s\n' "$src" > "$link/$marker"
       echo "copied   $link"
     fi
     done_count=$((done_count + 1))
