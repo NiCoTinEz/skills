@@ -17,10 +17,12 @@ remote: `gh` for `github.com`, `az repos` for `dev.azure.com` / `*.visualstudio.
 | `branch-commit` | ✅ | ✅ | — | — |
 | `commit-push-pr` | — | ✅ | ✅ | ✅ |
 | `commit-push` | — | ✅ | ✅ | — |
+| `commit` | — | ✅ | — | — |
 | `push-pr` | — | — | ✅ | ✅ |
 
-`branch-*` create a branch. `commit-*` use the branch already checked out. `push-pr` does neither —
-it ships the commits already on the branch and leaves any uncommitted work where it is.
+`branch-*` create a branch. `commit-*` use the branch already checked out; `commit` alone stops
+there and never touches a remote. `push-pr` does neither — it ships the commits already on the
+branch and leaves any uncommitted work where it is.
 
 **Conventions**
 
@@ -28,6 +30,9 @@ it ships the commits already on the branch and leaves any uncommitted work where
   `chore/bump-serilog`. Type matches the commit type.
 - **Commit:** Conventional Commits, subject ≤50 chars (hard cap 72), body bullets only when the
   *why* isn't obvious. No AI attribution, no `Co-Authored-By` trailer.
+- **One commit per logical change**, not one per invocation. A mixed tree gets split, ordered so
+  each commit stands on its own and passes the repo's gate; changes that only work together stay
+  together.
 - **Base branch:** resolved, never guessed — repo convention (`CLAUDE.md` / `AGENTS.md` /
   `CONTRIBUTING.md`) first, then `<remote>/HEAD`, then the platform's own default-branch API, and
   only as a last resort `main` → `master` → `development` → `develop`. A hardcoded ladder gets
@@ -62,7 +67,7 @@ Azure DevOps auth: `az login`, or a PAT with `Code (read & write)` + `Pull Reque
 $env:AZURE_DEVOPS_EXT_PAT = "<pat>"
 ```
 
-`branch-commit`, `branch-commit-push` and `commit-push` need only `git`.
+`commit`, `branch-commit`, `branch-commit-push` and `commit-push` need only `git`.
 
 ## Install
 

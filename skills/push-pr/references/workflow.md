@@ -38,6 +38,10 @@ resolve it once here and then substitute the name you resolved into every later 
 resolution, branch creation, push and PR all have to agree on one remote. Never hardcode `origin`
 after this point.
 
+A skill that reaches no remote stage (`commit`) needs neither `<remote>` nor platform detection.
+Resolve `<base>` for it from the local tracking ref only, and only because the report names the
+branch — never spend a platform round trip on it.
+
 ### Platform detection
 
 Match the URL of `origin`, i.e. `git remote get-url origin`:
@@ -265,7 +269,25 @@ Remove-Item $f
    The file goes inside `.git/`, so it can never be picked up as a repo change.
 
 4. If a hook rejects the commit, fix the underlying problem or report it. Never `--no-verify`.
-5. Multiple unrelated logical changes in the tree → prefer several commits, or ask.
+5. **Several unrelated logical changes in the tree → make several commits.** Default to splitting;
+   one commit per logical change, not one commit per invocation. Repeat steps 1–4 for each group.
+
+   Group by *change*, not by file or directory. A file touched for two unrelated reasons belongs to
+   two groups — stage the paths that carry each reason, not the whole file, and if a single file
+   can't be split by path, say so and keep it in the group it mostly serves.
+
+   The test for one group: it would read as a single line in a changelog, and it could be reverted
+   on its own without taking unrelated work with it.
+
+   **Every commit must stand alone.** Order the groups so each one leaves the tree in a working
+   state — if the repo has a verification gate (`npm run check`, a test suite, a build), each commit
+   should pass it, not just the last. Two changes that only work together are *one* logical change,
+   however different they look: a new module plus the manifest entry that registers it cannot be
+   split, because the commit that registers a file that doesn't exist yet is broken.
+
+   Split, and the report lists one `commit` line per commit, in the order they were made. Don't
+   split when it would produce a commit that can't stand alone, and say why you kept them together.
+   If the grouping is genuinely ambiguous, ask rather than guessing.
 
 ## Stage 3 — Push
 
@@ -390,3 +412,12 @@ pr        https://github.com/owner/repo/pull/42
 
 Omit lines for stages your skill doesn't run. If a stage was skipped or failed, say so on that
 line with the reason.
+
+Stage 2 split the work into several commits → one `commit` line each, oldest first:
+
+```
+branch    fix/tidy-cache-layer  (from main)
+commit    a1b2c3d  fix(cache): guard against a null connection
+commit    e4f5a6b  refactor(cache): extract the key builder
+commit    9c8d7e6  docs(cache): document the retry budget
+```

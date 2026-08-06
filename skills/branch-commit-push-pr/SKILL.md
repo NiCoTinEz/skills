@@ -20,7 +20,8 @@ Stage summary for this skill:
 
 0. **Preflight** — repo state, platform, base branch, guardrails, `gh`/`az` tool check.
 1. **Branch** — `<type>/<short-slug>` off an up-to-date base (off HEAD if the tree is dirty).
-2. **Commit** — stage deliberately, Conventional Commits, no AI attribution.
+2. **Commit** — stage deliberately, Conventional Commits, no AI attribution. Several unrelated
+   logical changes → several commits, and the PR gets one summarising title.
 3. **Push** — `git push --set-upstream <remote> HEAD`, using the remote resolved in stage 0.
 4. **PR** — `gh pr create` or `az repos pr create`, body = Summary + Test plan.
 5. **Report** — the compact platform/branch/commit/push/pr block.
