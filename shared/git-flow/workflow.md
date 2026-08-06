@@ -36,6 +36,10 @@ resolve it once here and then substitute the name you resolved into every later 
 resolution, branch creation, push and PR all have to agree on one remote. Never hardcode `origin`
 after this point.
 
+A skill that reaches no remote stage (`commit`) needs neither `<remote>` nor platform detection.
+Resolve `<base>` for it from the local tracking ref only, and only because the report names the
+branch — never spend a platform round trip on it.
+
 ### Platform detection
 
 Match the URL of `origin`, i.e. `git remote get-url origin`:

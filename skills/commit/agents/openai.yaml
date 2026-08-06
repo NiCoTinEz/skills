@@ -1,0 +1,4 @@
+interface:
+  display_name: "Commit"
+  short_description: "Commit on this branch — no push, no PR"
+  default_prompt: "Use $commit to commit the current work on this branch without pushing it."

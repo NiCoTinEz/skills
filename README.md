@@ -17,10 +17,12 @@ remote: `gh` for `github.com`, `az repos` for `dev.azure.com` / `*.visualstudio.
 | `branch-commit` | ✅ | ✅ | — | — |
 | `commit-push-pr` | — | ✅ | ✅ | ✅ |
 | `commit-push` | — | ✅ | ✅ | — |
+| `commit` | — | ✅ | — | — |
 | `push-pr` | — | — | ✅ | ✅ |
 
-`branch-*` create a branch. `commit-*` use the branch already checked out. `push-pr` does neither —
-it ships the commits already on the branch and leaves any uncommitted work where it is.
+`branch-*` create a branch. `commit-*` use the branch already checked out; `commit` alone stops
+there and never touches a remote. `push-pr` does neither — it ships the commits already on the
+branch and leaves any uncommitted work where it is.
 
 **Conventions**
 
@@ -62,7 +64,7 @@ Azure DevOps auth: `az login`, or a PAT with `Code (read & write)` + `Pull Reque
 $env:AZURE_DEVOPS_EXT_PAT = "<pat>"
 ```
 
-`branch-commit`, `branch-commit-push` and `commit-push` need only `git`.
+`commit`, `branch-commit`, `branch-commit-push` and `commit-push` need only `git`.
 
 ## Install
 
