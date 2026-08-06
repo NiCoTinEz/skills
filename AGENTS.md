@@ -46,7 +46,7 @@ If anything about skill folders, names or frontmatter changed, confirm the ecosy
 them. Cheapest real check, and it needs no push:
 
 ```bash
-npx skills add "<repo-root>" -l                    # must report: Found 5 skills
+npx skills add "<repo-root>" -l                    # must list every skills/<name>, none missing
 cd <tmpdir> && npx skills add "<repo-root>" --skill commit-push --agent claude-code --copy -y
 # then assert ALL THREE exist, i.e. the folder really is self-contained:
 #   .claude/skills/commit-push/SKILL.md
@@ -93,6 +93,15 @@ half-registered skill. It also fails if `plugin.json` lists a skill that has no 
 marketplace entry's name drifts from `plugin.json`'s, or if `package.json` and `plugin.json`
 versions disagree.
 
+It enforces the folder invariants too, so none of them relies on a reviewer noticing:
+
+- frontmatter `name` equals the folder name, and a `description` exists;
+- no root-level `SKILL.md`;
+- every `references/<file>.md` a `SKILL.md` cites exists inside that skill — a skill added without
+  registering its set in `SETS` fails here instead of shipping a dangling pointer;
+- and the reverse: `references/` holds nothing the build doesn't produce, so a copy orphaned by a
+  renamed shared source can't linger.
+
 ## Traps
 
 - **Installer paths match what `npx skills add` writes, on purpose** — that CLI's own agent table is
@@ -107,6 +116,18 @@ versions disagree.
   silently break the other.
 - `install.ps1` uses a directory **junction**, not a symlink, because junctions need no admin
   rights on Windows. Uninstall calls `.Delete()` on the link so target contents survive.
+- **`.gitattributes` pins `*.md` to `eol=lf`, and `build.mjs` compares newline-normalised.** Both
+  are load-bearing, not style. `BANNER` is an LF string prepended to the source body, so a CRLF
+  checkout (any Windows clone with `core.autocrlf=true`) makes every generated copy compare unequal:
+  `npm run check` reports all of them stale, `npm run build` "fixes" it by writing mixed-eol files,
+  git normalises those back to LF on commit, and the next clone is stale again. Don't remove either.
+- **A copy install carries a `.installed-from` marker; a link doesn't need one.** That is how
+  `--uninstall` distinguishes its own copies from a skill the user wrote by hand under the same
+  name, which it keeps and reports instead of `rm -rf`-ing. `--force` overrides. It also lets a
+  re-run refresh its own copy instead of demanding `--force`.
+- **`ln -s` in git-bash silently deep-copies** unless `MSYS=winsymlinks:nativestrict` is set, so the
+  default `--mode link` is a snapshot there, not live-updating. `install.sh` tests `[ -L ]` after
+  creating the link, reports `copied` rather than `linked` when it lost, and drops the marker.
 - The two manifests split responsibilities: `plugin.json` owns the `skills` array (one list, so it
   can't drift), `marketplace.json` just points at the plugin with `source: "./"`. Their `name`
   fields must be identical — `/plugin install <plugin-name>@<marketplace-name>` resolves through
