@@ -3,4 +3,6 @@ skills/*/references/** linguist-generated=true
 
 *.sh text eol=lf
 *.mjs text eol=lf
-*.md text
+# eol=lf, not bare `text`: scripts/build.mjs writes an LF banner onto the source body, so a CRLF
+# checkout makes every generated copy compare unequal and `npm run check` reports permanent stale.
+*.md text eol=lf
