@@ -17,8 +17,10 @@ remote: `gh` for `github.com`, `az repos` for `dev.azure.com` / `*.visualstudio.
 | `branch-commit` | ✅ | ✅ | — | — |
 | `commit-push-pr` | — | ✅ | ✅ | ✅ |
 | `commit-push` | — | ✅ | ✅ | — |
+| `push-pr` | — | — | ✅ | ✅ |
 
-`branch-*` create a branch. `commit-*` use the branch already checked out.
+`branch-*` create a branch. `commit-*` use the branch already checked out. `push-pr` does neither —
+it ships the commits already on the branch and leaves any uncommitted work where it is.
 
 **Conventions**
 
@@ -40,9 +42,10 @@ remote: `gh` for `github.com`, `az repos` for `dev.azure.com` / `*.visualstudio.
   `*.key`, `id_rsa*` and similar secret-shaped paths.
 - Pushing to the default branch needs explicit confirmation.
 - Non-fast-forward push stops and reports — no force-push, no silent rebase.
+- Nothing to push, or no commits between branch and base, stops and says which — no empty PR.
 - Never installs a CLI itself; asks with the exact command and waits.
 
-All five share one procedure file: [`shared/git-flow/workflow.md`](./shared/git-flow/workflow.md).
+They all share one procedure file: [`shared/git-flow/workflow.md`](./shared/git-flow/workflow.md).
 Edit it, run `npm run build`, and every skill picks the change up.
 
 **Needs**

@@ -26,6 +26,7 @@ const SETS = [
       "branch-commit",
       "commit-push-pr",
       "commit-push",
+      "push-pr",
     ],
   },
 ];
