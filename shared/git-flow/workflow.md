@@ -94,7 +94,9 @@ of one you were told. If two candidates exist and nothing above disambiguates, a
 
 Refuse and explain rather than working around any of these:
 
-- **Nothing to commit** — no staged and no unstaged changes: stop, report clean tree.
+- **Nothing to commit** — for a skill that runs stage 2: no staged and no unstaged changes, so stop
+  and report a clean tree. A skill that does **not** commit (`push-pr`) treats a clean tree as the
+  normal case; its equivalent check is *Nothing to ship*, in stage 4.
 - **No `--force`, no `--force-with-lease`, no `--no-verify`, no `git push` to a protected/default
   branch** without the user explicitly asking in this turn.
 - **No amend, no rebase, no reset** of existing commits. New commits only.
@@ -270,15 +272,45 @@ git push --set-upstream <remote> HEAD
 ```
 
 - Already has upstream → plain `git push`.
+- **Nothing to push** — `git rev-list --count <remote>/<branch>..HEAD` returns `0`, i.e. the branch
+  has an upstream and sits no commits ahead of it. Skip the push, report it as
+  `push      skipped: already up to date`, and carry on to the next stage. This is **not** an error.
+  Only a skill that skips stage 2 can reach it, since a fresh commit always leaves the branch ahead.
+- **Uncommitted changes, for a skill that skips stage 2** (`push-pr`): a push carries commits, not
+  working-tree state. Name the dirty paths, say plainly that they stay local and appear in neither
+  the push nor the PR, then continue. Offer the matching `commit-*` skill if the user wanted them
+  included.
 - **Rejected as non-fast-forward:** stop. Report it and offer `git pull --rebase <remote> <branch>`
   as a *suggestion*. Do not force-push, do not rebase without approval.
-- Currently on the default/protected branch (only possible for the `commit-*` skills): warn
+- Currently on the default/protected branch (possible for any skill that skips stage 1): warn
   clearly that this pushes straight to `<base>` and get explicit confirmation before pushing.
 
 ## Stage 4 — Pull request
 
+**Nothing to ship** — `git rev-list --count <base>..HEAD` returns `0`: no commits separate the
+branch from `<base>`, so there is no diff to open a PR for. Stop and report; both platforms reject
+an empty PR anyway.
+
 Skip if a PR for this branch already exists — fetch and report its URL instead of creating a
-duplicate (`gh pr view --json url,state`; `az repos pr list --source-branch <branch>`).
+duplicate:
+
+```bash
+# GitHub — defaults to the current branch
+gh pr view --json url,state
+```
+
+```bash
+# Azure DevOps — org / project / repo parsed as the Azure DevOps section below describes.
+# `az repos pr list` needs them explicitly unless `az devops configure --defaults` is set,
+# so pass the same three values the create call uses.
+az repos pr list \
+  --organization "https://dev.azure.com/<org>" \
+  --project "<project>" \
+  --repository "<repo>" \
+  --source-branch "<branch>" \
+  --status active \
+  --output json
+```
 
 Title = the commit subject (drop the `<type>(<scope>):` prefix only if the platform convention
 in the repo does). Multiple commits → one summarising title.

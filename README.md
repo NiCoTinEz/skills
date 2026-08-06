@@ -17,8 +17,10 @@ remote: `gh` for `github.com`, `az repos` for `dev.azure.com` / `*.visualstudio.
 | `branch-commit` | ✅ | ✅ | — | — |
 | `commit-push-pr` | — | ✅ | ✅ | ✅ |
 | `commit-push` | — | ✅ | ✅ | — |
+| `push-pr` | — | — | ✅ | ✅ |
 
-`branch-*` create a branch. `commit-*` use the branch already checked out.
+`branch-*` create a branch. `commit-*` use the branch already checked out. `push-pr` does neither —
+it ships the commits already on the branch and leaves any uncommitted work where it is.
 
 **Conventions**
 
@@ -26,7 +28,11 @@ remote: `gh` for `github.com`, `az repos` for `dev.azure.com` / `*.visualstudio.
   `chore/bump-serilog`. Type matches the commit type.
 - **Commit:** Conventional Commits, subject ≤50 chars (hard cap 72), body bullets only when the
   *why* isn't obvious. No AI attribution, no `Co-Authored-By` trailer.
-- **Base branch:** `origin/HEAD`, else `main` → `master` → `develop`.
+- **Base branch:** resolved, never guessed — repo convention (`CLAUDE.md` / `AGENTS.md` /
+  `CONTRIBUTING.md`) first, then `<remote>/HEAD`, then the platform's own default-branch API, and
+  only as a last resort `main` → `master` → `development` → `develop`. A hardcoded ladder gets
+  `development`, `DEV` and `v1/development` defaults wrong, which silently opens a PR with the
+  wrong diff.
 - **PR body:** `## Summary` + `## Test plan`.
 
 **Guardrails**
@@ -36,9 +42,10 @@ remote: `gh` for `github.com`, `az repos` for `dev.azure.com` / `*.visualstudio.
   `*.key`, `id_rsa*` and similar secret-shaped paths.
 - Pushing to the default branch needs explicit confirmation.
 - Non-fast-forward push stops and reports — no force-push, no silent rebase.
+- Nothing to push, or no commits between branch and base, stops and says which — no empty PR.
 - Never installs a CLI itself; asks with the exact command and waits.
 
-All five share one procedure file: [`shared/git-flow/workflow.md`](./shared/git-flow/workflow.md).
+They all share one procedure file: [`shared/git-flow/workflow.md`](./shared/git-flow/workflow.md).
 Edit it, run `npm run build`, and every skill picks the change up.
 
 **Needs**
@@ -62,7 +69,7 @@ $env:AZURE_DEVOPS_EXT_PAT = "<pat>"
 ```bash
 npx skills add NiCoTinEz/skills                            # pick skills + agents interactively
 npx skills add NiCoTinEz/skills --skill commit-push -y     # one skill, no prompts
-npx skills add NiCoTinEz/skills --skill '*' --global -y    # all five, user-level
+npx skills add NiCoTinEz/skills --skill '*' --global -y    # all of them, user-level
 ```
 
 Uses the `skills` CLI. It detects which coding agents you have and installs into each one's skill
@@ -100,15 +107,25 @@ cd skills
 Links (Windows: directory junction — no admin needed) each skill into every tool's skill directory.
 `-Mode copy` / `--mode copy` takes an independent snapshot instead.
 
+Copies — and links made in a shell that can't create symlinks, i.e. git-bash without
+`MSYS=winsymlinks:nativestrict`, where `ln -s` silently deep-copies — carry a `.installed-from`
+file naming their source. That is how `-Uninstall` / `--uninstall` tells its own copies from a skill
+you wrote by hand that happens to share the name: the latter is kept and reported, never deleted,
+unless you pass `-Force` / `--force`. Symlinks and junctions are removed without it, target
+untouched. A snapshot is reported as `copied`, not `linked`, so you can see it isn't live-updating.
+
 | Flag | Meaning |
 |---|---|
 | `-Tool` / `--tool` | `all` (default), or any of `claude`, `codex`, `opencode`, `agents`, comma-separated |
-| `-Skill` / `--skill` | install a subset instead of all five |
+| `-Skill` / `--skill` | install a subset instead of all of them |
 | `-Mode` / `--mode` | `link` (default) or `copy` |
 | `-Scope` / `--scope` | `user` (default) or `project` |
 | `-Project` / `--project` | target repo root for `--scope project` |
-| `-Force` / `--force` | overwrite existing entries, and create tool dirs that don't exist yet |
-| `-Uninstall` / `--uninstall` | remove the links/copies; sources are never touched |
+| `-Force` / `--force` | overwrite existing entries, create missing tool dirs, widen `--uninstall` |
+| `-Uninstall` / `--uninstall` | remove the links/copies it made; sources are never touched |
+
+An unknown `--tool` or `--skill` name is an error, not a silent no-op — a typo can't quietly install
+less than you asked for.
 
 By default a tool is skipped when its home directory is absent — nothing gets created for a tool
 you don't use.
@@ -146,6 +163,69 @@ otherwise install to project scope and point the agent's own rules file at
 `.agents/skills/<name>/SKILL.md`. Failing that, paste the skill body into the chat — these are plain
 Markdown with no tool-specific syntax.
 
+## Update
+
+Which command depends on how you installed. Skills aren't versioned individually — an update just
+brings the installed folder in line with the repo.
+
+**Installed with `npx skills add`:**
+
+```bash
+npx skills update                       # every installed skill, scope auto-detected
+npx skills update commit-push -y        # one skill, skip the scope prompt
+npx skills update --global -y           # user-level installs only (--project for the other)
+```
+
+`npx skills list` shows what is installed and where. Re-running the original `npx skills add …`
+command works too — it overwrites the existing install.
+
+**Installed from a clone:**
+
+```bash
+git pull
+```
+
+For a default `link` install that is the whole update: the junction/symlink points at the working
+copy, so the agent reads the new files on its next session. Nothing to re-run.
+
+A `copy` install is a snapshot, so re-run the same install command to refresh it — no `-Force` /
+`--force` needed, because the installer recognises its own copies by their `.installed-from` marker:
+
+```powershell
+./scripts/install.ps1 -Mode copy
+```
+
+```bash
+./scripts/install.sh --mode copy
+```
+
+The same applies to a `link` install made in git-bash without `MSYS=winsymlinks:nativestrict` —
+`ln -s` deep-copies there, so it is a snapshot too. The installer reports those as `copied` rather
+than `linked`, which is how you can tell. `--force` is only needed when the target isn't a directory
+these scripts wrote — one from `npx skills add --copy`, say, or a skill of your own.
+
+Both installers run `npm run build` before installing anything, so a regenerated `references/`
+always lands before the copy or link is made. Without `node` on `PATH` they warn and skip that step.
+
+**Installed as a Claude Code plugin:**
+
+```
+/plugin marketplace update nicotinez-skills
+```
+
+### Changing a skill yourself
+
+These are plain Markdown. Edit `skills/<name>/SKILL.md` in a clone and a `link` install picks the
+change up on the agent's next session — no reinstall, no build.
+
+Two rules. Prose shared by several skills lives in `shared/<set>/`, so edit that and run
+`npm run build`; **never hand-edit `skills/*/references/`**, which is generated and will be
+overwritten. Then run `npm run check` — it fails on a stale generated copy, a frontmatter `name`
+that no longer matches its folder, a missing `description`, a `references/` path a skill cites but
+doesn't ship, and manifest drift.
+
+Adding a new skill, and the invariants behind those checks: [`AGENTS.md`](./AGENTS.md).
+
 ## Usage
 
 Ask for it by name, or describe the outcome — the `description` frontmatter is what routes it:
@@ -169,7 +249,6 @@ scripts/install.ps1 | install.sh  installers
 AGENTS.md                         contributor/agent notes, invariants, how to add a skill
 ```
 
-`npm run build` regenerates, `npm run check` verifies — both the generated references and the
-manifests.
-
-Adding or changing a skill: see [`AGENTS.md`](./AGENTS.md).
+`npm run build` regenerates, `npm run check` verifies. Editing a skill:
+[Changing a skill yourself](#changing-a-skill-yourself). Adding one, and the invariants the check
+enforces: [`AGENTS.md`](./AGENTS.md).

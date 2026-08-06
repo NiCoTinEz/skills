@@ -21,6 +21,7 @@
     "./skills/branch-commit-push",
     "./skills/branch-commit",
     "./skills/commit-push-pr",
-    "./skills/commit-push"
+    "./skills/commit-push",
+    "./skills/push-pr"
   ]
 }

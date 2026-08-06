@@ -5,7 +5,7 @@ description: >
   Stays local — no push, no pull request. Works on GitHub and Azure DevOps repos. Use when the
   user says "branch commit", "commit this on a new branch", "branch it locally", or invokes
   /branch-commit.
-allowed-tools: Bash, Read, Glob, Grep
+allowed-tools: Bash, PowerShell, Read, Glob, Grep
 ---
 
 Run stages **0 → 1 → 2 → 5** of the shared workflow. **Do not push and do not create a pull

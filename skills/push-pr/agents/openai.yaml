@@ -1,0 +1,4 @@
+interface:
+  display_name: "Push PR"
+  short_description: "Push this branch and open a PR — commits nothing"
+  default_prompt: "Use $push-pr to push the current branch and open a pull request for the commits already on it."
