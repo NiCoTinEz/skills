@@ -30,6 +30,9 @@ branch and leaves any uncommitted work where it is.
   `chore/bump-serilog`. Type matches the commit type.
 - **Commit:** Conventional Commits, subject ≤50 chars (hard cap 72), body bullets only when the
   *why* isn't obvious. No AI attribution, no `Co-Authored-By` trailer.
+- **One commit per logical change**, not one per invocation. A mixed tree gets split, ordered so
+  each commit stands on its own and passes the repo's gate; changes that only work together stay
+  together.
 - **Base branch:** resolved, never guessed — repo convention (`CLAUDE.md` / `AGENTS.md` /
   `CONTRIBUTING.md`) first, then `<remote>/HEAD`, then the platform's own default-branch API, and
   only as a last resort `main` → `master` → `development` → `develop`. A hardcoded ladder gets

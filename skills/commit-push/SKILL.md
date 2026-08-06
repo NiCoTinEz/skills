@@ -18,7 +18,8 @@ Stage summary for this skill:
 
 0. **Preflight** — repo state, `<remote>`, `<base>`, guardrails. No CLI check needed. `<base>` is
    needed even here: the default-branch warning below compares against it.
-2. **Commit** — stage deliberately, Conventional Commits, no AI attribution.
+2. **Commit** — stage deliberately, Conventional Commits, no AI attribution. Several unrelated
+   logical changes → several commits, all pushed together.
 3. **Push** — `git push --set-upstream <remote> HEAD`, using the remote resolved in stage 0.
    Non-fast-forward → stop and report; never force-push or rebase without approval.
 5. **Report** — commit and push lines.

@@ -20,8 +20,15 @@ Stage summary for this skill:
 0. **Preflight** — repo state and guardrails. No platform detection, no `<remote>`, no CLI check:
    this skill reaches no remote. Resolve `<base>` only from the local tracking ref, and only so the
    report can name it — never call the platform for it.
-2. **Commit** — stage deliberately, Conventional Commits, no AI attribution.
-5. **Report** — commit line only, plus the reminder that nothing was pushed.
+2. **Commit** — stage deliberately, Conventional Commits, no AI attribution. Several unrelated
+   logical changes → several commits.
+5. **Report** — one commit line per commit made, plus the reminder that nothing was pushed.
+
+**This is the best skill in the set for splitting a mixed tree.** Nothing is pushed, so there is no
+cost to getting the grouping wrong beyond a local reset the user can ask for. Default to one commit
+per logical change as stage 2 describes, order them so each one stands on its own, and list them all
+in the report. Keep changes together only when splitting would produce a commit that cannot stand
+alone — a new file and the manifest entry registering it, say — and name that reason.
 
 **Say which branch the commit landed on.** Nothing is pushed, so committing onto the default branch
 is recoverable and not worth stopping for — but name the branch in the report either way, and if it
