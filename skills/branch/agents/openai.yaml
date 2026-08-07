@@ -1,0 +1,4 @@
+interface:
+  display_name: "Branch"
+  short_description: "Create a type/short-slug branch — commits nothing"
+  default_prompt: "Use $branch to create a type/short-slug branch off the resolved base and switch to it, without committing."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "PR"
+  short_description: "Open a PR for the already-pushed commits — pushes nothing"
+  default_prompt: "Use $pr to open a pull request for the commits already pushed on the current branch, without pushing or committing."

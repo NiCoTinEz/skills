@@ -1,0 +1,4 @@
+interface:
+  display_name: "Push"
+  short_description: "Push this branch — commits nothing, opens no PR"
+  default_prompt: "Use $push to push the commits already on the current branch, setting upstream if needed."

@@ -15,11 +15,16 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
+// One set per stage, so a skill carries only the stages it runs. `commit` reads core + commit and
+// nothing about pushing or pull requests; the monolithic reference it replaced cost every skill the
+// whole procedure. Membership here IS the stage list in each SKILL.md — keep the two in step, and
+// `npm run check` will catch it if you don't (a cited reference that isn't installed fails, and so
+// does an installed one the skill never cites).
 const SETS = [
   {
-    name: "git-flow",
-    source: "shared/git-flow/workflow.md",
-    target: "references/workflow.md",
+    name: "git-flow-core",
+    source: "shared/git-flow/core.md",
+    target: "references/core.md",
     skills: [
       "branch-commit-push-pr",
       "branch-commit-push",
@@ -28,7 +33,49 @@ const SETS = [
       "commit-push",
       "commit",
       "push-pr",
+      "branch",
+      "push",
+      "pr",
+      "sync-base",
     ],
+  },
+  {
+    name: "git-flow-branch",
+    source: "shared/git-flow/branch.md",
+    target: "references/branch.md",
+    skills: ["branch-commit-push-pr", "branch-commit-push", "branch-commit", "branch"],
+  },
+  {
+    name: "git-flow-commit",
+    source: "shared/git-flow/commit.md",
+    target: "references/commit.md",
+    skills: [
+      "branch-commit-push-pr",
+      "branch-commit-push",
+      "branch-commit",
+      "commit-push-pr",
+      "commit-push",
+      "commit",
+    ],
+  },
+  {
+    name: "git-flow-push",
+    source: "shared/git-flow/push.md",
+    target: "references/push.md",
+    skills: [
+      "branch-commit-push-pr",
+      "branch-commit-push",
+      "commit-push-pr",
+      "commit-push",
+      "push-pr",
+      "push",
+    ],
+  },
+  {
+    name: "git-flow-pr",
+    source: "shared/git-flow/pr.md",
+    target: "references/pr.md",
+    skills: ["branch-commit-push-pr", "commit-push-pr", "push-pr", "pr"],
   },
 ];
 

@@ -19,10 +19,24 @@ remote: `gh` for `github.com`, `az repos` for `dev.azure.com` / `*.visualstudio.
 | `commit-push` | — | ✅ | ✅ | — |
 | `commit` | — | ✅ | — | — |
 | `push-pr` | — | — | ✅ | ✅ |
+| `branch` | ✅ | — | — | — |
+| `push` | — | — | ✅ | — |
+| `pr` | — | — | — | ✅ |
 
 `branch-*` create a branch. `commit-*` use the branch already checked out; `commit` alone stops
 there and never touches a remote. `push-pr` does neither — it ships the commits already on the
 branch and leaves any uncommitted work where it is.
+
+Every contiguous run of the four stages has a skill, single stages included. Those three refuse
+their neighbours rather than helpfully spilling into them: `branch` leaves the working tree exactly
+as it found it, `push` opens no PR, and `pr` never pushes — a branch missing from the remote, or
+behind local HEAD, stops it with a pointer to `push-pr` instead.
+
+**`sync-base`** sits outside that table: it switches back to the base branch — `main`, `master`,
+`development`, whatever this repo actually uses — and fast-forwards it (`git pull --ff-only`). It is
+the end of the cycle the others start. It resolves `<base>` the same four ways they do rather than
+guessing, and a dirty tree stops it: `git switch` would carry uncommitted work onto the base branch
+without a word. It deletes nothing.
 
 **Conventions**
 
@@ -50,8 +64,18 @@ branch and leaves any uncommitted work where it is.
 - Nothing to push, or no commits between branch and base, stops and says which — no empty PR.
 - Never installs a CLI itself; asks with the exact command and waits.
 
-They all share one procedure file: [`shared/git-flow/workflow.md`](./shared/git-flow/workflow.md).
-Edit it, run `npm run build`, and every skill picks the change up.
+They share one procedure, split per stage so a skill carries only what it runs — `commit` gets
+`core.md` and `commit.md`, nothing about pushing or pull requests:
+
+| Source | Holds | Goes to |
+|---|---|---|
+| [`shared/git-flow/core.md`](./shared/git-flow/core.md) | preflight, platform detection, base-branch resolution, guardrails, report format | all 11 |
+| [`branch.md`](./shared/git-flow/branch.md) | stage 1 | the 4 `branch*` |
+| [`commit.md`](./shared/git-flow/commit.md) | stage 2 | the 6 `*commit*` |
+| [`push.md`](./shared/git-flow/push.md) | stage 3 | the 6 `*push*` |
+| [`pr.md`](./shared/git-flow/pr.md) | `gh`/`az` preflight, stage 4, GitHub + Azure DevOps calls | the 4 `*pr` |
+
+Edit a source, run `npm run build`, and every skill that carries it picks the change up.
 
 **Needs**
 
@@ -67,7 +91,8 @@ Azure DevOps auth: `az login`, or a PAT with `Code (read & write)` + `Pull Reque
 $env:AZURE_DEVOPS_EXT_PAT = "<pat>"
 ```
 
-`commit`, `branch-commit`, `branch-commit-push` and `commit-push` need only `git`.
+`branch`, `commit`, `push`, `sync-base`, `branch-commit`, `branch-commit-push` and `commit-push`
+need only `git` — none of them reaches a pull request.
 
 ## Install
 
