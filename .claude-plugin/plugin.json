@@ -23,6 +23,10 @@
     "./skills/commit-push-pr",
     "./skills/commit-push",
     "./skills/commit",
-    "./skills/push-pr"
+    "./skills/push-pr",
+    "./skills/branch",
+    "./skills/push",
+    "./skills/pr",
+    "./skills/sync-base"
   ]
 }

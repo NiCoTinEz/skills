@@ -1,0 +1,4 @@
+interface:
+  display_name: "Sync Base"
+  short_description: "Switch back to the base branch and fast-forward it"
+  default_prompt: "Use $sync-base to switch back to this repository's base branch and pull it up to date."

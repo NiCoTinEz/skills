@@ -2,27 +2,26 @@
 name: commit
 description: >
   Commit the current work on the branch already checked out, with a Conventional Commits message —
-  no new branch, no push, no pull request. Works on GitHub and Azure DevOps repos. Use when the user
-  says "commit", "commit this", "commit only", "just commit", "commit without pushing", or invokes
-  /commit.
+  no new branch, no push, no pull request. Use for "commit", "commit only", "commit without
+  pushing".
 allowed-tools: Bash, PowerShell, Read, Glob, Grep
 ---
 
-Run stages **0 → 2 → 5** of the shared workflow. **Skip stages 1, 3 and 4** — never create or switch
-branches, never push, never open a pull request. The commit stays local.
+Run stages **0 → 2 → 5**. **Skip stages 1, 3 and 4** — never create or switch branches, never push,
+never open a pull request. The commit stays local.
 
-**Read `references/workflow.md` — the file next to this one inside this skill's own folder —
-before doing anything else.** It holds the guardrails and the commit format. Do not improvise
-these from memory.
+**Read `references/core.md` and `references/commit.md` — both next to this file, inside this skill's
+own folder — before doing anything else.** They hold the guardrails and the commit format. Do not
+improvise these from memory.
 
 Stage summary for this skill:
 
-0. **Preflight** — repo state and guardrails. No platform detection, no `<remote>`, no CLI check:
+0. **Preflight** (`core.md`) — repo state and guardrails. No platform detection, no `<remote>`, no CLI check:
    this skill reaches no remote. Resolve `<base>` only from the local tracking ref, and only so the
    report can name it — never call the platform for it.
-2. **Commit** — stage deliberately, Conventional Commits, no AI attribution. Several unrelated
-   logical changes → several commits.
-5. **Report** — one commit line per commit made, plus the reminder that nothing was pushed.
+2. **Commit** (`commit.md`) — stage deliberately, Conventional Commits, no AI attribution. Several
+   unrelated logical changes → several commits.
+5. **Report** (`core.md`) — one commit line per commit made, plus the reminder that nothing was pushed.
 
 **This is the best skill in the set for splitting a mixed tree.** Nothing is pushed, so there is no
 cost to getting the grouping wrong beyond a local reset the user can ask for. Default to one commit
