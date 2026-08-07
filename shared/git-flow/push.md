@@ -8,9 +8,11 @@ git push --quiet --set-upstream <remote> HEAD
 ```
 
 - Already has upstream → plain `git push --quiet`.
-- `--quiet` drops the transfer progress and the host's post-push banner — GitHub's "Create a pull
-  request for …" block, Azure DevOps' equivalent. Rejections, hook failures and errors still print,
-  which is the only output here worth reading.
+- `--quiet` drops git's own transfer progress and the `To <url>` / `* [new branch]` summary.
+  It does **not** stop the host's post-push banner — GitHub's "Create a pull request for …" block
+  arrives over the side-band as `remote:` lines, and no client-side flag suppresses it. Redirecting
+  stderr would take the rejections and hook failures with it, so don't. Those, and errors, are the
+  output here actually worth reading.
 - **Nothing to push** — `git rev-list --count <remote>/<branch>..HEAD` returns `0`, i.e. the branch
   has an upstream and sits no commits ahead of it. Skip the push, report it as
   `push      skipped: already up to date`, and carry on to the next stage. This is **not** an error.
