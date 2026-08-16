@@ -67,10 +67,6 @@ where the flow stopped and what remains.
 
 ## The pull request
 
-**Nothing to ship** — `git rev-list --count <base>..HEAD` returns `0`: no commits separate the
-branch from `<base>`, so there is no diff to open a PR for. Stop and report; both platforms reject
-an empty PR anyway.
-
 **A skill that skips stage 3 (`pr`) must not push to make the PR possible.** The platform opens the
 PR from what the *remote* holds, so confirm first that the branch is there and that local HEAD is
 not ahead of it:
@@ -78,31 +74,38 @@ not ahead of it:
 ```bash
 git fetch <remote> --quiet
 git rev-parse --verify --quiet <remote>/<branch>
-git rev-list --count <remote>/<branch>..HEAD
+git rev-list --left-right --count <remote>/<branch>...HEAD
 ```
 
-A missing ref means the branch was never pushed; a count above `0` means the PR would open without
-the commits the user is looking at. Either way stop, say which of the two it is, and offer
-`push-pr`. Pushing to fix it is stage 3 — not this skill's to run.
+A missing ref means the branch was never pushed. Any result other than `0 0` means local HEAD and
+the remote source differ, so the PR would describe a different commit set from the one being
+reviewed. Stop, report whether local is ahead, behind or diverged, and offer `push-pr` only when
+local is ahead. Pushing to fix it is stage 3 — not this skill's to run.
+
+After source parity is established, **nothing to ship** —
+`git rev-list --count "<remote>/<base>..HEAD"` returns `0`: no commits separate the branch from the
+refreshed remote base, so there is no diff to open a PR for. Stop and report; both platforms reject
+an empty PR anyway.
 
 Skip if a PR for this branch already exists — fetch and report its URL instead of creating a
 duplicate:
 
 ```bash
-# GitHub — defaults to the current branch
-gh pr view --json url,state
+# GitHub — constrain source, target and active state
+gh pr list --head "<branch>" --base "<base>" --state open --json url --jq '.[0].url'
 ```
 
 ```bash
 # Azure DevOps — org / project / repo parsed as the Azure DevOps section below describes.
 # `az repos pr list` needs them explicitly unless `az devops configure --defaults` is set,
 # so pass the same three values the create call uses. One line: see Command discipline in core.md.
-az repos pr list --organization "https://dev.azure.com/<org>" --project "<project>" --repository "<repo>" --source-branch "<branch>" --status active --query "[].pullRequestId" -o tsv
+az repos pr list --organization "https://dev.azure.com/<org>" --project "<project>" --repository "<repo>" --source-branch "<branch>" --target-branch "<base>" --status active --query "[].pullRequestId" -o tsv
 ```
 
-An ID comes back → a PR already exists; report its URL, composed as the Azure DevOps section below
-describes. Empty output → none exists, carry on. The unscoped `--output json` returns the whole
-PullRequest object for every match, none of which this check reads.
+One ID comes back → a PR already exists; report its URL, composed as the Azure DevOps section below
+describes. More than one → report them and ask rather than choosing silently. Empty output → none
+exists, carry on. The unscoped `--output json` returns the whole PullRequest object for every match,
+none of which this check reads.
 
 Title = the commit subject (drop the `<type>(<scope>):` prefix only if the platform convention
 in the repo does). Multiple commits → one summarising title.
@@ -117,8 +120,9 @@ Body:
 - <how it was verified, or "not run: <reason>">
 ```
 
-For GitHub, write the body to a temp file and pass `--body-file` rather than inlining a multi-line
-string. Azure DevOps takes it as one argument per line instead — see below.
+For GitHub, write the body to a uniquely named file under the Git directory and pass `--body-file`
+rather than inlining a multi-line string. Remove it after the command, including after failure.
+Azure DevOps takes the body as one argument per line instead — see below.
 
 ### GitHub
 
