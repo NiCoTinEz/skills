@@ -1,5 +1,5 @@
 {
-  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
   "name": "nicotinez-skills",
   "description": "Personal agent skills.",
   "owner": {
@@ -10,7 +10,7 @@
     {
       "name": "nicotinez-skills",
       "source": "./",
-      "description": "git-flow: branch / commit / push / PR skills for GitHub and Azure DevOps, platform auto-detected from the origin remote.",
+      "description": "Git workflow skills for branch / commit / push / PR and base-branch synchronization on GitHub and Azure DevOps.",
       "category": "workflow",
       "keywords": [
         "git",

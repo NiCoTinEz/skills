@@ -1,8 +1,8 @@
 {
-  "$schema": "https://anthropic.com/claude-code/plugin.schema.json",
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "nicotinez-skills",
-  "version": "0.1.0",
-  "description": "git-flow: branch / commit / push / PR on GitHub (gh) or Azure DevOps (az repos), platform auto-detected from the origin remote, Conventional Commits, type/short-slug branches.",
+  "version": "0.1.1",
+  "description": "Git workflows for branch / commit / push / PR and base-branch synchronization on GitHub or Azure DevOps.",
   "author": {
     "name": "Sukoljesd Seesuwankul",
     "url": "https://github.com/NiCoTinEz"
