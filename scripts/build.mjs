@@ -9,8 +9,8 @@
 // Add a set: extend SETS below. Sources live in shared/<set>/, and land in
 // skills/<skill>/references/<file> for each listed skill.
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, statSync } from "node:fs";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -82,6 +82,9 @@ const SETS = [
 const BANNER = (source) =>
   `<!-- generated from ${source} — edit that file, then run: npm run build -->\n\n`;
 
+const isFile = (path) => existsSync(path) && statSync(path).isFile();
+const safeRelative = (path) => !isAbsolute(path) && !path.split(/[\\/]/).includes("..");
+
 // Compare and write LF, whatever the working tree holds. `.gitattributes` pins *.md to eol=lf, but
 // a checkout made under core.autocrlf=true before that yields CRLF sources — and a byte compare
 // then calls every copy stale forever, because the banner is LF while the body is CRLF and
@@ -94,9 +97,38 @@ let written = 0;
 // skill -> targets this build owns, so a left-over file from a renamed source can be spotted.
 const generated = new Map();
 
+const setProblems = [];
+const setNames = new Set();
+const outputs = new Set();
+for (const set of SETS) {
+  if (setNames.has(set.name)) setProblems.push(`duplicate set name: ${set.name}`);
+  setNames.add(set.name);
+  if (!safeRelative(set.source) || !set.source.startsWith("shared/")) {
+    setProblems.push(`${set.name} source must stay under shared/: ${set.source}`);
+  }
+  if (!safeRelative(set.target) || !set.target.startsWith("references/")) {
+    setProblems.push(`${set.name} target must stay under references/: ${set.target}`);
+  }
+  const members = new Set();
+  for (const skill of set.skills) {
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(skill)) {
+      setProblems.push(`${set.name} has unsafe skill name: ${skill}`);
+    }
+    if (members.has(skill)) setProblems.push(`${set.name} lists ${skill} more than once`);
+    members.add(skill);
+    const output = `${skill}/${set.target}`;
+    if (outputs.has(output)) setProblems.push(`multiple sets produce skills/${output}`);
+    outputs.add(output);
+  }
+}
+if (setProblems.length) {
+  for (const problem of setProblems) console.error(`sets: ${problem}`);
+  process.exit(1);
+}
+
 for (const set of SETS) {
   const sourcePath = join(ROOT, set.source);
-  if (!existsSync(sourcePath)) {
+  if (!isFile(sourcePath)) {
     console.error(`missing source: ${set.source}`);
     process.exit(1);
   }
@@ -104,7 +136,7 @@ for (const set of SETS) {
 
   for (const skill of set.skills) {
     const skillDir = join(ROOT, "skills", skill);
-    if (!existsSync(join(skillDir, "SKILL.md"))) {
+    if (!isFile(join(skillDir, "SKILL.md"))) {
       console.error(`missing skill: skills/${skill}/SKILL.md`);
       process.exit(1);
     }
@@ -136,10 +168,11 @@ for (const set of SETS) {
 // holding exactly the files SETS produces — no dangling citation, no orphan left by a rename.
 const problems = [];
 
-const onDisk = readdirSync(join(ROOT, "skills"), { withFileTypes: true })
-  .filter((e) => e.isDirectory() && existsSync(join(ROOT, "skills", e.name, "SKILL.md")))
+const skillFolders = readdirSync(join(ROOT, "skills"), { withFileTypes: true })
+  .filter((e) => e.isDirectory())
   .map((e) => e.name)
   .sort();
+const onDisk = skillFolders.filter((name) => isFile(join(ROOT, "skills", name, "SKILL.md")));
 
 const plugin = JSON.parse(readFileSync(join(ROOT, ".claude-plugin/plugin.json"), "utf8"));
 const listed = (plugin.skills ?? []).map((p) => p.replace(/^\.\/skills\//, "")).sort();
@@ -147,6 +180,12 @@ const listed = (plugin.skills ?? []).map((p) => p.replace(/^\.\/skills\//, "")).
 // `npx skills add` searches shallowest-first, so a root SKILL.md shadows everything under skills/.
 if (existsSync(join(ROOT, "SKILL.md"))) {
   problems.push("root SKILL.md exists — it shadows every skill under skills/ for `npx skills add`; delete it");
+}
+
+for (const name of skillFolders) {
+  if (!isFile(join(ROOT, "skills", name, "SKILL.md"))) {
+    problems.push(`skills/${name}/ has no regular SKILL.md file`);
+  }
 }
 
 // Enough of a YAML reader for the two keys every tool reads. Handles `key: value` and the
@@ -187,17 +226,38 @@ for (const name of onDisk) {
     }
   }
 
+  if (/\$\{CLAUDE_PLUGIN_ROOT\}|(?:^|[\s(`'"])\.\.\//m.test(text) || /(?:^|[\s(`'"])[A-Za-z]:[\\/]/m.test(text) || /`\/(?:[^`\s]+\/[^`\s]+|[^/`\s]*\.[^`\s]+)`/.test(text)) {
+    problems.push(`skills/${name}/SKILL.md references content outside its own folder`);
+  }
+  for (const link of text.matchAll(/\]\(([^)]+)\)/g)) {
+    const target = link[1].split("#", 1)[0];
+    if (target && !/^[a-z][a-z0-9+.-]*:/i.test(target)) {
+      const local = resolve(skillDir, target);
+      const within = relative(skillDir, local);
+      if (within.startsWith("..") || isAbsolute(within)) {
+        problems.push(`skills/${name}/SKILL.md link escapes the skill folder: ${target}`);
+      }
+    }
+  }
+
   // Self-containment: every references/… path a skill cites has to exist inside its own folder.
-  for (const ref of new Set(text.match(/references\/[\w.-]+\.md/g) ?? [])) {
-    if (!existsSync(join(skillDir, ref))) {
+  const cited = new Set(text.match(/references\/[\w.-]+\.md/g) ?? []);
+  for (const ref of cited) {
+    if (!isFile(join(skillDir, ref))) {
       problems.push(`skills/${name}/SKILL.md cites ${ref}, which does not exist — register the set in SETS, then: npm run build`);
+    }
+  }
+
+  const owned = generated.get(name) ?? new Set();
+  for (const ref of owned) {
+    if (!cited.has(ref)) {
+      problems.push(`skills/${name}/${ref} is generated but SKILL.md never cites it`);
     }
   }
 
   // The reverse: a generated file no set produces any more, e.g. after a shared source was renamed.
   const refDir = join(skillDir, "references");
   if (existsSync(refDir)) {
-    const owned = generated.get(name) ?? new Set();
     for (const entry of readdirSync(refDir)) {
       if (!owned.has(`references/${entry}`)) {
         problems.push(`skills/${name}/references/${entry} is produced by no set in SETS — delete it, or register the set`);
@@ -206,8 +266,28 @@ for (const name of onDisk) {
   }
 
   if (!listed.includes(name)) problems.push(`plugin.json "skills" is missing "./skills/${name}"`);
-  if (!existsSync(join(skillDir, "agents/openai.yaml"))) {
+  const openaiPath = join(skillDir, "agents/openai.yaml");
+  if (!isFile(openaiPath)) {
     problems.push(`skills/${name}/agents/openai.yaml missing (Codex display metadata)`);
+  } else {
+    const yaml = readFileSync(openaiPath, "utf8");
+    const display = /^\s{2}display_name:\s*["']?(.+?)["']?\s*$/m.exec(yaml)?.[1]?.trim();
+    const short = /^\s{2}short_description:\s*["']?(.+?)["']?\s*$/m.exec(yaml)?.[1]?.trim();
+    const prompt = /^\s{2}default_prompt:\s*["']?(.+?)["']?\s*$/m.exec(yaml)?.[1]?.trim();
+    if (!/^interface:\s*$/m.test(yaml) || !display || !short) {
+      problems.push(`skills/${name}/agents/openai.yaml needs interface.display_name and interface.short_description`);
+    }
+    if (prompt && !prompt.includes(`$${name}`)) {
+      problems.push(`skills/${name}/agents/openai.yaml default_prompt must reference $${name}`);
+    }
+    for (const match of yaml.matchAll(/^\s{2}icon_(?:small|large):\s*["']?(.+?)["']?\s*$/gm)) {
+      const asset = match[1].trim();
+      const assetPath = resolve(dirname(openaiPath), asset);
+      const insideSkill = relative(skillDir, assetPath);
+      if (!insideSkill || insideSkill.startsWith("..") || isAbsolute(insideSkill) || !isFile(assetPath)) {
+        problems.push(`skills/${name}/agents/openai.yaml icon path is missing or escapes the skill: ${asset}`);
+      }
+    }
   }
 }
 for (const name of listed) {
@@ -220,8 +300,12 @@ if (pkg.version !== plugin.version) {
 }
 
 const market = JSON.parse(readFileSync(join(ROOT, ".claude-plugin/marketplace.json"), "utf8"));
-const entry = (market.plugins ?? []).find((p) => p.source === "./");
-if (!entry) problems.push('marketplace.json has no plugin entry with "source": "./"');
+if (market.name !== plugin.name) {
+  problems.push(`marketplace name "${market.name ?? ""}" != plugin.json name "${plugin.name}"`);
+}
+const entries = (market.plugins ?? []).filter((p) => p.source === "./");
+const entry = entries[0];
+if (entries.length !== 1) problems.push('marketplace.json must have exactly one plugin entry with "source": "./"');
 else if (entry.name !== plugin.name) {
   problems.push(
     `marketplace plugin name "${entry.name}" != plugin.json name "${plugin.name}" — ` +

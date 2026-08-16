@@ -45,7 +45,77 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $skillsRoot = Join-Path $repoRoot 'skills'
 
-if (-not (Test-Path $skillsRoot)) { throw "skills/ not found under $repoRoot" }
+if (-not (Test-Path -LiteralPath $skillsRoot -PathType Container)) { throw "skills/ not found under $repoRoot" }
+
+function Get-NormalPath([string]$Path) {
+  $full = [IO.Path]::GetFullPath($Path)
+  $root = [IO.Path]::GetPathRoot($full)
+  $current = $root
+  $parts = $full.Substring($root.Length) -split '[\\/]'
+  foreach ($part in $parts) {
+    $candidate = Join-Path $current $part
+    if (Test-Path -LiteralPath $candidate) {
+      $entry = Get-Item -LiteralPath $candidate -Force
+      if ($entry.LinkType -and $entry.PSObject.Methods.Name -contains 'ResolveLinkTarget') {
+        $target = $entry.ResolveLinkTarget($true)
+        $current = if ($target) { $target.FullName } else { $candidate }
+      }
+      else { $current = $candidate }
+    }
+    else { $current = $candidate }
+  }
+  return [IO.Path]::GetFullPath($current).TrimEnd([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar)
+}
+
+function Get-NormalMarkerPath([string]$Path) {
+  if ($Path -match '^/mnt/([A-Za-z])/(.*)$') {
+    $Path = "$($Matches[1]):\$($Matches[2].Replace('/', '\'))"
+  }
+  elseif ($Path -match '^/([A-Za-z])/(.*)$') {
+    $Path = "$($Matches[1]):\$($Matches[2].Replace('/', '\'))"
+  }
+  return Get-NormalPath $Path
+}
+
+function Test-PathWithin([string]$Path, [string]$Parent) {
+  $path_ = Get-NormalPath $Path
+  $parent_ = Get-NormalPath $Parent
+  return $path_.Equals($parent_, [StringComparison]::OrdinalIgnoreCase) -or
+         $path_.StartsWith($parent_ + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)
+}
+
+# Unlike Test-Path, this can see a dangling link because it inspects the parent directory entry.
+function Get-LiteralEntry([string]$Path) {
+  $parent = Split-Path -Parent $Path
+  $leaf = Split-Path -Leaf $Path
+  if (-not (Test-Path -LiteralPath $parent -PathType Container)) { return $null }
+  return Get-ChildItem -LiteralPath $parent -Force |
+    Where-Object { $_.Name -eq $leaf } |
+    Select-Object -First 1
+}
+
+function Test-OwnedLink($Item, [string]$ExpectedSource) {
+  if (-not $Item.LinkType -or -not $Item.Target) { return $false }
+  foreach ($target in @($Item.Target)) {
+    $targetPath = if ([IO.Path]::IsPathRooted($target)) { $target } else { Join-Path $Item.Parent.FullName $target }
+    if ((Get-NormalPath $targetPath).Equals((Get-NormalPath $ExpectedSource), [StringComparison]::OrdinalIgnoreCase)) {
+      return $true
+    }
+  }
+  return $false
+}
+
+function Test-OwnedCopy([string]$Path, [string]$ExpectedSource, [string]$SkillName, [string]$Marker) {
+  $markerPath = Join-Path $Path $Marker
+  if (-not (Test-Path -LiteralPath $markerPath -PathType Leaf)) { return $false }
+  $lines = @(Get-Content -LiteralPath $markerPath)
+  if ($lines.Count -gt 0 -and $lines[0] -eq "nicotinez-skills/v1/$SkillName") { return $true }
+  try {
+    return (Get-NormalMarkerPath ((Get-Content -LiteralPath $markerPath -Raw).Trim())).Equals(
+      (Get-NormalPath $ExpectedSource), [StringComparison]::OrdinalIgnoreCase)
+  }
+  catch { return $false }
+}
 
 # Keep generated references in sync before installing anything.
 if (-not $Uninstall) {
@@ -79,14 +149,21 @@ if ($Tool -notcontains 'all') {
   $targets = $targets | Where-Object { $Tool -contains $_.Name }
 }
 
-$skillDirs = Get-ChildItem $skillsRoot -Directory |
-  Where-Object { Test-Path (Join-Path $_.FullName 'SKILL.md') }
+$skillDirs = Get-ChildItem -LiteralPath $skillsRoot -Directory |
+  Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName 'SKILL.md') -PathType Leaf }
 if ($Skill) {
   $skillDirs = $skillDirs | Where-Object { $Skill -contains $_.Name }
   $missing = $Skill | Where-Object { $_ -notin $skillDirs.Name }
   if ($missing) { throw "unknown skill(s): $($missing -join ', ')" }
 }
 if (-not $skillDirs) { throw 'no skills found' }
+
+if ($Scope -eq 'project') {
+  if ([string]::IsNullOrWhiteSpace($Project) -or -not (Test-Path -LiteralPath $Project -PathType Container)) {
+    throw "project root must be an existing directory: $Project"
+  }
+  $Project = (Resolve-Path -LiteralPath $Project).Path
+}
 
 $done = 0
 $skipped = 0
@@ -100,6 +177,10 @@ foreach ($target in $targets) {
     $dest = $target.User
   }
 
+  if (Test-PathWithin $dest $skillsRoot) {
+    throw "refusing destination inside source skills directory: $dest"
+  }
+
   # Several agents share a directory (.agents/skills at project scope). Do it once.
   $destKey = $dest.TrimEnd('\', '/').ToLowerInvariant()
   if ($seenDest.ContainsKey($destKey)) {
@@ -111,7 +192,7 @@ foreach ($target in $targets) {
   # User scope: only touch a tool that is actually set up, unless -Force.
   if ($Scope -eq 'user' -and -not $Uninstall -and -not $Force) {
     $toolHome = Split-Path -Parent $dest
-    if (-not (Test-Path $toolHome)) {
+    if (-not (Test-Path -LiteralPath $toolHome -PathType Container)) {
       Write-Host "skip $($target.Name): $toolHome not present (use -Force to create)" -ForegroundColor DarkGray
       continue
     }
@@ -121,15 +202,22 @@ foreach ($target in $targets) {
     $link = Join-Path $dest $skillDir.Name
 
     if ($Uninstall) {
-      if (-not (Test-Path $link)) { continue }
-      $item = Get-Item $link -Force
+      $item = Get-LiteralEntry $link
+      if (-not $item) { continue }
       if ($item.LinkType) {
-        # Remove the junction/symlink itself, never its target contents.
-        $item.Delete()
+        if ((Test-OwnedLink $item $skillDir.FullName) -or $Force) {
+          # Remove the junction/symlink itself, never its target contents.
+          $item.Delete()
+        }
+        else {
+          Write-Warning "kept, link points elsewhere (use -Force to delete anyway): $link"
+          $skipped++
+          continue
+        }
       }
-      elseif ((Test-Path (Join-Path $link $marker)) -or $Force) {
+      elseif ((Test-OwnedCopy $link $skillDir.FullName $skillDir.Name $marker) -or $Force) {
         # Our own -Mode copy install (marker present), or the user insisted.
-        Remove-Item $link -Recurse -Force
+        Remove-Item -LiteralPath $link -Recurse -Force
       }
       else {
         # A plain directory with no marker may be a skill the user wrote by hand that happens to
@@ -145,26 +233,23 @@ foreach ($target in $targets) {
 
     New-Item -ItemType Directory -Path $dest -Force | Out-Null
 
-    if (Test-Path $link) {
-      $existing = Get-Item $link -Force
-      $isOurs = $existing.LinkType -and $existing.Target -and
-                (($existing.Target | ForEach-Object { $_.TrimEnd('\') }) -contains $skillDir.FullName.TrimEnd('\'))
-      if ($isOurs -and $Mode -eq 'link') {
+    $existing = Get-LiteralEntry $link
+    if ($existing) {
+      $isOurLink = Test-OwnedLink $existing $skillDir.FullName
+      if ($isOurLink -and $Mode -eq 'link') {
         Write-Host "ok       $link" -ForegroundColor DarkGray
         $skipped++
         continue
       }
       # A marked copy from an earlier -Mode copy run is also ours — refresh it rather than demanding
       # -Force for a directory this script wrote.
-      $markerPath = Join-Path $link $marker
-      $isOurCopy = -not $existing.LinkType -and (Test-Path $markerPath) -and
-                   ((Get-Content $markerPath -Raw).Trim() -eq $skillDir.FullName)
-      if (-not $Force -and -not $isOurCopy) {
+      $isOurCopy = -not $existing.LinkType -and (Test-OwnedCopy $link $skillDir.FullName $skillDir.Name $marker)
+      if (-not $Force -and -not $isOurCopy -and -not $isOurLink) {
         Write-Warning "exists, not overwriting (use -Force): $link"
         $skipped++
         continue
       }
-      if ($existing.LinkType) { $existing.Delete() } else { Remove-Item $link -Recurse -Force }
+      if ($existing.LinkType) { $existing.Delete() } else { Remove-Item -LiteralPath $link -Recurse -Force }
     }
 
     if ($Mode -eq 'link') {
@@ -173,9 +258,9 @@ foreach ($target in $targets) {
       Write-Host "linked   $link" -ForegroundColor Green
     }
     else {
-      Copy-Item $skillDir.FullName $link -Recurse
+      Copy-Item -LiteralPath $skillDir.FullName -Destination $link -Recurse
       # Marker so -Uninstall can tell our copy from a skill the user wrote themselves.
-      Set-Content -Path (Join-Path $link $marker) -Value $skillDir.FullName -Encoding utf8
+      Set-Content -LiteralPath (Join-Path $link $marker) -Value @("nicotinez-skills/v1/$($skillDir.Name)", $skillDir.FullName) -Encoding utf8
       Write-Host "copied   $link" -ForegroundColor Green
     }
     $done++

@@ -33,6 +33,8 @@ scripts/install.ps1 / install.sh    installs skills into each tool's skill dir
   Extra keys are ignored by others, so keep tool-specific ones optional and harmless.
 - **`description` is the routing signal.** It is the only text a tool sees before deciding to load
   the skill — state what it does *and* the phrases that should trigger it.
+- **Plugin content changes require a version bump.** Claude Code caches plugin versions, so update
+  both `package.json` and `.claude-plugin/plugin.json` whenever shipped skills or references change.
 - Skill body text must not name one specific agent ("this plugin", "Claude will…"). Write it for
   any agent.
 
@@ -48,9 +50,11 @@ them. Cheapest real check, and it needs no push:
 ```bash
 npx skills add "<repo-root>" -l                    # must list every skills/<name>, none missing
 cd <tmpdir> && npx skills add "<repo-root>" --skill commit-push --agent claude-code --copy -y
-# then assert ALL THREE exist, i.e. the folder really is self-contained:
+# then assert all bundled files exist, i.e. the folder really is self-contained:
 #   .claude/skills/commit-push/SKILL.md
-#   .claude/skills/commit-push/references/workflow.md
+#   .claude/skills/commit-push/references/core.md
+#   .claude/skills/commit-push/references/commit.md
+#   .claude/skills/commit-push/references/push.md
 #   .claude/skills/commit-push/agents/openai.yaml
 ```
 

@@ -184,6 +184,10 @@ If you'd rather manage it through `/plugin`:
 /plugin install nicotinez-skills@nicotinez-skills
 ```
 
+Plugin skill names are namespaced, for example
+`/nicotinez-skills:branch-commit-push-pr`. The shorter `/branch-commit-push-pr` form below applies
+to skills installed directly with `npx skills add` or the repository installers.
+
 Update later with `/plugin marketplace update nicotinez-skills`.
 
 ### Agents that don't load SKILL.md themselves

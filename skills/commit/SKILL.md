@@ -16,9 +16,8 @@ improvise these from memory.
 
 Stage summary for this skill:
 
-0. **Preflight** (`core.md`) — repo state and guardrails. No platform detection, no `<remote>`, no CLI check:
-   this skill reaches no remote. Resolve `<base>` only from the local tracking ref, and only so the
-   report can name it — never call the platform for it.
+0. **Preflight** (`core.md`) — repo state and guardrails. No platform detection, no `<remote>`, no
+   `<base>`, no CLI check: this skill reaches no remote and reports the current branch directly.
 2. **Commit** (`commit.md`) — stage deliberately, Conventional Commits, no AI attribution. Several
    unrelated logical changes → several commits.
 5. **Report** (`core.md`) — one commit line per commit made, plus the reminder that nothing was pushed.
@@ -29,10 +28,9 @@ per logical change as stage 2 describes, order them so each one stands on its ow
 in the report. Keep changes together only when splitting would produce a commit that cannot stand
 alone — a new file and the manifest entry registering it, say — and name that reason.
 
-**Say which branch the commit landed on.** Nothing is pushed, so committing onto the default branch
-is recoverable and not worth stopping for — but name the branch in the report either way, and if it
-is `<base>`, say so plainly rather than leaving the user to notice. Offer `branch-commit` if they
-wanted the work isolated on its own branch instead.
+**Say which branch the commit landed on.** Nothing is pushed, so this skill does not resolve a base
+or stop based on the branch name; it names the current branch in the report. Offer `branch-commit`
+if the user wanted the work isolated on its own branch instead.
 
 Offer the follow-ups: `commit-push` to push this commit, `commit-push-pr` to push it and open a pull
 request, `push-pr` if the commits are all in place and only the push and PR remain.

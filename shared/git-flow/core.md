@@ -9,7 +9,8 @@ ones your skill names alongside this file.
 Stages: **0 preflight → 1 branch → 2 commit → 3 push → 4 pull request → 5 report**
 
 A skill outside that chain may instead run stage 0 and stage 5 alone, with its own procedure between
-them — it still resolves `<remote>` and `<base>` here, and still reports in stage 5's format.
+them — it still resolves `<remote>` and `<base>` here, and reports the lines stage 5 defines plus any
+its own procedure adds (`sync-base` adds a `pull` line).
 
 ---
 
@@ -20,18 +21,23 @@ Run these first, in one batch:
 ```bash
 git rev-parse --show-toplevel
 git status --porcelain=v1 --branch
-git remote get-url origin
+git symbolic-ref --quiet --short HEAD
 git log --oneline -5
 ```
+
+Capture `git remote get-url origin` without printing it: HTTPS remotes can contain credentials.
+Use the captured value only to derive the host and repository path, and redact any user-info before
+reporting it. If `git log` fails because HEAD is unborn, report `no commits yet` and continue; that
+is a valid state for a commit skill.
 
 Derive:
 
 | Fact | How |
 |---|---|
 | repo root | `git rev-parse --show-toplevel` |
-| current branch | `## <branch>...` line of `git status --branch` |
-| dirty? | any porcelain lines |
-| staged? | porcelain lines whose **first** column is not space/`?` |
+| current branch | `git symbolic-ref --quiet --short HEAD` |
+| dirty? | any porcelain line **other than** the `##` branch header |
+| staged? | non-header porcelain lines whose **first** column is not space/`?` |
 | `<remote>` | see *Platform detection* |
 | platform | see *Platform detection* |
 | base branch | see *Base branch* |
@@ -66,9 +72,8 @@ resolve it once here and then substitute the name you resolved into every later 
 resolution, branch creation, push and PR all have to agree on one remote. Never hardcode `origin`
 after this point.
 
-A skill that reaches no remote stage (`commit`) needs neither `<remote>` nor platform detection.
-Resolve `<base>` for it from the local tracking ref only, and only because the report names the
-branch — never spend a platform round trip on it.
+A skill that reaches no remote stage (`commit`) needs neither `<remote>`, `<base>` nor platform
+detection. It reports the current branch directly; never spend a remote round trip on it.
 
 A skill that reaches stage 4 has one more preflight step: the `gh` / `az` tool check at the top of
 `pr.md`. Run it here, in this batch, not when you get to stage 4.
@@ -85,15 +90,13 @@ Match the URL of `origin`, i.e. `git remote get-url origin`:
 
 `<remote>` is `origin` when it matched.
 
-Only when `git remote get-url origin` fails or its URL matches nothing is the full remote list worth
-printing — that is the one case that needs every remote, so spend `git remote -v` there and nowhere
-else.
+When `origin` is absent, list remote **names only** with `git remote`, then capture each URL without
+printing it and inspect the sanitized host. If exactly one remote exists, use it. If several exist
+and exactly one is GitHub or Azure DevOps, use that one and say why; otherwise ask which to use.
 
-Unknown or absent `origin`: look through `git remote -v` for a remote whose URL does match. If
-exactly one does, set `<remote>` to **that remote's name** and say which one you chose and why —
-and remember that `git push`, the `<remote>/HEAD` lookup and the PR's source branch must all use
-that name. If several match, ask which to use. If none match, complete every stage except the PR
-against `<remote>`, and tell the user the host is unsupported for automated PR creation.
+An existing `origin` whose host is unsupported is still `<remote>`; only automated PR creation is
+unsupported. If there is no `origin` and no other remote, stop any stage that needs a remote. Never
+print `git remote -v`: a URL may embed a username, password or PAT.
 
 ### Base branch
 
@@ -145,8 +148,8 @@ Refuse and explain rather than working around any of these:
   `*.p12`, `secrets.*`, `appsettings.*.local.json`, `*.publishsettings`, credential or token
   files, or anything containing an obvious live secret in the diff. Flag such a file and leave
   it unstaged.
-- **Merge in progress / rebase in progress / detached HEAD** — stop, report state, let the user
-  resolve.
+- **Merge, rebase, cherry-pick, revert, bisect or sequencer operation in progress / detached HEAD**
+  — stop, report state, let the user resolve.
 - **Pre-existing staged changes you did not intend to include** — list them and confirm before
   committing.
 
@@ -164,8 +167,9 @@ push      <remote>/feat/add-cache-retry
 pr        https://github.com/owner/repo/pull/42
 ```
 
-Omit lines for stages your skill doesn't run. If a stage was skipped or failed, say so on that
-line with the reason.
+Omit lines for stages your skill doesn't run, except that a commit-only skill may include a
+`branch` context line naming where the commit landed. If a stage was skipped or failed, say so on
+that line with the reason.
 
 Stage 2 split the work into several commits → one `commit` line each, oldest first:
 

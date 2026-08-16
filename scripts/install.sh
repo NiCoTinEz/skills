@@ -16,7 +16,7 @@
 # kept and reported; --force deletes that too.
 set -euo pipefail
 
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 skills_root="$repo_root/skills"
 [ -d "$skills_root" ] || { echo "skills/ not found under $repo_root" >&2; exit 1; }
 
@@ -28,13 +28,20 @@ project="$PWD"
 force=0
 uninstall=0
 
+require_value() {
+  [ $# -ge 2 ] && [ -n "$2" ] && [ "${2#-}" = "$2" ] || {
+    echo "$1 requires a non-empty value" >&2
+    exit 1
+  }
+}
+
 while [ $# -gt 0 ]; do
   case "$1" in
-    --tool) tools="$2"; shift 2 ;;
-    --skill) skills="$2"; shift 2 ;;
-    --mode) mode="$2"; shift 2 ;;
-    --scope) scope="$2"; shift 2 ;;
-    --project) project="$2"; shift 2 ;;
+    --tool) require_value "$@"; tools="$2"; shift 2 ;;
+    --skill) require_value "$@"; skills="$2"; shift 2 ;;
+    --mode) require_value "$@"; mode="$2"; shift 2 ;;
+    --scope) require_value "$@"; scope="$2"; shift 2 ;;
+    --project) require_value "$@"; project="$2"; shift 2 ;;
     --force) force=1; shift ;;
     --uninstall) uninstall=1; shift ;;
     # Print the header comment block only — stop at the first non-comment line.
@@ -45,6 +52,10 @@ done
 
 case "$mode" in link|copy) ;; *) echo "--mode must be link or copy" >&2; exit 1 ;; esac
 case "$scope" in user|project) ;; *) echo "--scope must be user or project" >&2; exit 1 ;; esac
+if [ "$scope" = project ]; then
+  [ -d "$project" ] || { echo "project root must be an existing directory: $project" >&2; exit 1; }
+  project="$(cd "$project" && pwd -P)"
+fi
 
 # Keep generated references in sync before installing anything.
 if [ "$uninstall" -eq 0 ]; then
@@ -62,18 +73,51 @@ xdg_config="${XDG_CONFIG_HOME:-$HOME/.config}"
 # either script can clean up after the other.
 marker=".installed-from"
 
+canonical_path() {
+  local path=$1 suffix= parent base
+  while [ ! -e "$path" ] && [ ! -L "$path" ]; do
+    suffix="/$(basename "$path")$suffix"
+    parent=$(dirname "$path")
+    [ "$parent" != "$path" ] || break
+    path=$parent
+  done
+  if [ -d "$path" ]; then
+    base=$(cd "$path" && pwd -P)
+  else
+    base="$(cd "$(dirname "$path")" && pwd -P)/$(basename "$path")"
+  fi
+  printf '%s\n' "$base$suffix"
+}
+
+owned_copy() {
+  local first legacy drive rest
+  [ -f "$link/$marker" ] || return 1
+  first=$(sed -n '1{s/\r$//;p;}' "$link/$marker")
+  [ "$first" = "nicotinez-skills/v1/$skill" ] && return 0
+  legacy=$(tr -d '\r\n' < "$link/$marker")
+  case "$legacy" in
+    [A-Za-z]:\\*)
+      if command -v cygpath >/dev/null 2>&1; then
+        legacy=$(cygpath -u "$legacy")
+      else
+        drive=$(printf '%s' "${legacy%%:*}" | tr '[:upper:]' '[:lower:]')
+        rest=${legacy#?:}
+        rest=${rest//\\//}
+        legacy="/mnt/$drive$rest"
+      fi
+      ;;
+  esac
+  [ -e "$legacy" ] && [ "$(canonical_path "$legacy")" = "$src" ]
+}
+
 # Paths mirror what `npx skills add` writes, so a skill installed that way and one installed from
 # a clone land in the same place instead of two competing copies. Codex and OpenCode
 # both use .agents/skills at project scope — the dedupe below stops that installing three times.
 #
-# name|user-scope dir|project-scope subdir
-all_targets=$(cat <<EOF
-claude|$HOME/.claude/skills|.claude/skills
-codex|$codex_home/skills|.agents/skills
-opencode|$xdg_config/opencode/skills|.agents/skills
-agents|$HOME/.agents/skills|.agents/skills
-EOF
-)
+# Parallel arrays avoid serializing paths through a delimiter that may legally occur in a filename.
+target_names=(claude codex opencode agents)
+target_users=("$HOME/.claude/skills" "$codex_home/skills" "$xdg_config/opencode/skills" "$HOME/.agents/skills")
+target_projects=(.claude/skills .agents/skills .agents/skills .agents/skills)
 
 wanted() {
   [ "$tools" = all ] && return 0
@@ -89,7 +133,7 @@ if [ "$tools" != all ]; then
   old_ifs=$IFS
   IFS=','
   for t in $tools; do
-    [ -n "$t" ] || continue
+    [ -n "$t" ] || { echo "--tool contains an empty value" >&2; exit 1; }
     case " $known_tools " in *" $t "*) ;; *) bad="$bad $t" ;; esac
   done
   IFS=$old_ifs
@@ -117,7 +161,7 @@ if [ -n "$skills" ]; then
   old_ifs=$IFS
   IFS=','
   for s in $skills; do
-    [ -n "$s" ] || continue
+    [ -n "$s" ] || { echo "--skill contains an empty value" >&2; exit 1; }
     case "$known_skills" in *" $s "*) ;; *) bad="$bad $s" ;; esac
   done
   IFS=$old_ifs
@@ -139,9 +183,12 @@ done
 
 done_count=0
 skipped=0
-seen_dests=""
+seen_dests=()
 
-while IFS='|' read -r name user_dir project_sub; do
+for i in "${!target_names[@]}"; do
+  name="${target_names[$i]}"
+  user_dir="${target_users[$i]}"
+  project_sub="${target_projects[$i]}"
   wanted "$name" || continue
 
   if [ "$scope" = project ]; then
@@ -154,12 +201,23 @@ while IFS='|' read -r name user_dir project_sub; do
       continue
     fi
   fi
+  dest=$(canonical_path "$dest")
+
+  # Never let install or --force remove the source tree it is installing from.
+  case "${dest%/}/" in
+    "${skills_root%/}/"*) echo "refusing destination inside source skills directory: $dest" >&2; exit 1 ;;
+  esac
 
   # Several agents share a directory (.agents/skills at project scope). Do it once.
-  case "$seen_dests" in
-    *"|${dest%/}|"*) echo "skip $name: same dir as an agent already handled"; continue ;;
-  esac
-  seen_dests="$seen_dests|${dest%/}|"
+  duplicate=0
+  for seen in "${seen_dests[@]}"; do
+    if [ "$seen" = "${dest%/}" ]; then duplicate=1; break; fi
+  done
+  if [ "$duplicate" -eq 1 ]; then
+    echo "skip $name: same dir as an agent already handled"
+    continue
+  fi
+  seen_dests+=("${dest%/}")
 
   for skill in "${skill_dirs[@]}"; do
     src="$skills_root/$skill"
@@ -167,10 +225,15 @@ while IFS='|' read -r name user_dir project_sub; do
 
     if [ "$uninstall" -eq 1 ]; then
       [ -e "$link" ] || [ -L "$link" ] || continue
-      # A symlink is unambiguously ours. A plain directory is either a --mode copy install (which
-      # carries the marker) or a skill the user wrote by hand that happens to share the name —
-      # never rm -rf the latter on the strength of its name alone.
-      if [ ! -L "$link" ] && [ ! -f "$link/$marker" ] && [ "$force" -eq 0 ]; then
+      owned_link=0
+      if [ -L "$link" ] && [ -d "$link" ] && [ "$(cd "$link" && pwd -P)" = "$src" ]; then
+        owned_link=1
+      fi
+      owned_copy=0
+      if [ ! -L "$link" ] && owned_copy; then
+        owned_copy=1
+      fi
+      if [ "$owned_link" -eq 0 ] && [ "$owned_copy" -eq 0 ] && [ "$force" -eq 0 ]; then
         echo "kept $link: not installed by this script (use --force to delete anyway)" >&2
         skipped=$((skipped + 1))
         continue
@@ -183,7 +246,11 @@ while IFS='|' read -r name user_dir project_sub; do
 
     mkdir -p "$dest"
 
-    if [ -L "$link" ] && [ "$(readlink "$link")" = "$src" ] && [ "$mode" = link ]; then
+    owned_link=0
+    if [ -L "$link" ] && [ -d "$link" ] && [ "$(cd "$link" && pwd -P)" = "$src" ]; then
+      owned_link=1
+    fi
+    if [ "$owned_link" -eq 1 ] && [ "$mode" = link ]; then
       echo "ok       $link"
       skipped=$((skipped + 1))
       continue
@@ -192,7 +259,9 @@ while IFS='|' read -r name user_dir project_sub; do
     if [ -e "$link" ] || [ -L "$link" ]; then
       # Already ours from an earlier run — a --mode copy, or a link-mode run in a shell that could
       # not symlink. Refresh it instead of demanding --force for a directory this script wrote.
-      if [ -f "$link/$marker" ] && [ "$(cat "$link/$marker")" = "$src" ]; then
+      if owned_copy; then
+        rm -rf -- "$link"
+      elif [ "$owned_link" -eq 1 ]; then
         rm -rf -- "$link"
       elif [ "$force" -eq 0 ]; then
         echo "exists, not overwriting (use --force): $link" >&2
@@ -210,18 +279,18 @@ while IFS='|' read -r name user_dir project_sub; do
       else
         # git-bash with MSYS winsymlinks unset deep-copies instead of linking, silently. Say so —
         # a `git pull` in this repo will not reach it — and mark it so --uninstall knows it is ours.
-        printf '%s\n' "$src" > "$link/$marker"
+        printf '%s\n%s\n' "nicotinez-skills/v1/$skill" "$src" > "$link/$marker"
         echo "copied   $link  (this shell cannot create symlinks — snapshot, not live-updating)"
       fi
     else
       cp -R "$src" "$link"
       # Marker so --uninstall can tell our copy from a skill the user wrote themselves.
-      printf '%s\n' "$src" > "$link/$marker"
+      printf '%s\n%s\n' "nicotinez-skills/v1/$skill" "$src" > "$link/$marker"
       echo "copied   $link"
     fi
     done_count=$((done_count + 1))
   done
-done <<< "$all_targets"
+done
 
 echo
 if [ "$uninstall" -eq 1 ]; then
