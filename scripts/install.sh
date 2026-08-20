@@ -209,8 +209,10 @@ for i in "${!target_names[@]}"; do
   esac
 
   # Several agents share a directory (.agents/skills at project scope). Do it once.
+  # `${a[@]}` on an empty array is an unbound-variable error under `set -u` in bash 3.2, which is
+  # what macOS ships — expand it only when it has members.
   duplicate=0
-  for seen in "${seen_dests[@]}"; do
+  for seen in ${seen_dests[@]+"${seen_dests[@]}"}; do
     if [ "$seen" = "${dest%/}" ]; then duplicate=1; break; fi
   done
   if [ "$duplicate" -eq 1 ]; then
