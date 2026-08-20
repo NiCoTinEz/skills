@@ -117,13 +117,13 @@ function Test-OwnedCopy([string]$Path, [string]$ExpectedSource, [string]$SkillNa
   catch { return $false }
 }
 
-# Keep generated references in sync before installing anything.
+# Keep the generated SKILL.md files in sync before installing anything.
 if (-not $Uninstall) {
   if (Get-Command node -ErrorAction SilentlyContinue) {
     & node (Join-Path $PSScriptRoot 'build.mjs') | Out-Null
   }
   else {
-    Write-Warning "node not found — skipping build; skills/*/references/ may be stale"
+    Write-Warning "node not found — skipping build; skills/*/SKILL.md may be stale"
   }
 }
 

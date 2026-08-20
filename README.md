@@ -238,8 +238,8 @@ The same applies to a `link` install made in git-bash without `MSYS=winsymlinks:
 than `linked`, which is how you can tell. `--force` is only needed when the target isn't a directory
 these scripts wrote — one from `npx skills add --copy`, say, or a skill of your own.
 
-Both installers run `npm run build` before installing anything, so a regenerated `references/`
-always lands before the copy or link is made. Without `node` on `PATH` they warn and skip that step.
+Both installers run `npm run build` before installing anything, so a regenerated `SKILL.md` always
+lands before the copy or link is made. Without `node` on `PATH` they warn and skip that step.
 
 **Installed as a Claude Code plugin:**
 
@@ -249,14 +249,17 @@ always lands before the copy or link is made. Without `node` on `PATH` they warn
 
 ### Changing a skill yourself
 
-These are plain Markdown. Edit `skills/<name>/SKILL.md` in a clone and a `link` install picks the
-change up on the agent's next session — no reinstall, no build.
+These are plain Markdown, but **every `skills/<name>/SKILL.md` is generated** and will be
+overwritten. Edit the source instead: `shared/<set>/heads/<name>.md` for one skill's own text, or
+`shared/<set>/<stage>.md` for a stage that several skills share. Then `npm run build`, and a `link`
+install picks the change up on the agent's next session.
 
-Two rules. Prose shared by several skills lives in `shared/<set>/`, so edit that and run
-`npm run build`; **never hand-edit `skills/*/references/`**, which is generated and will be
-overwritten. Then run `npm run check` — it fails on a stale generated copy, a frontmatter `name`
-that no longer matches its folder, a missing `description`, a `references/` path a skill cites but
-doesn't ship, and manifest drift.
+`npm run check` is the gate. It fails on a `SKILL.md` that no longer matches its source, a
+frontmatter `name` that doesn't match its folder, a missing `description`, a leftover `references/`
+folder, a generated body over the line budget, and manifest drift.
+
+Each skill is one self-contained file, deliberately: the stages used to ship as `references/*.md`
+that every skill then told the agent to read, which cost 2-5 tool calls before any work began.
 
 Adding a new skill, and the invariants behind those checks: [`AGENTS.md`](./AGENTS.md).
 
@@ -273,11 +276,11 @@ ship this and open a PR
 ## Repo layout
 
 ```
-skills/<name>/SKILL.md            the skill
+skills/<name>/SKILL.md            the skill — generated, don't edit
 skills/<name>/agents/openai.yaml  Codex display name + one-line summary
-skills/<name>/references/*.md     bundled resources — generated, don't edit
-shared/<set>/*.md                 source for anything shared by several skills
-scripts/build.mjs                 shared/ -> skills/*/references/, plus manifest checks
+shared/<set>/heads/<name>.md      one skill's own text: frontmatter, refusals, its own stops
+shared/<set>/*.md                 one file per stage, shared by every skill that runs it
+scripts/build.mjs                 assembles shared/ -> skills/*/SKILL.md, plus manifest checks
 scripts/install.ps1 | install.sh  installers
 .claude-plugin/                   plugin manifest (owns the skills list) + marketplace entry
 AGENTS.md                         contributor/agent notes, invariants, how to add a skill

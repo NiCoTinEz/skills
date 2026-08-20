@@ -57,12 +57,12 @@ if [ "$scope" = project ]; then
   project="$(cd "$project" && pwd -P)"
 fi
 
-# Keep generated references in sync before installing anything.
+# Keep the generated SKILL.md files in sync before installing anything.
 if [ "$uninstall" -eq 0 ]; then
   if command -v node >/dev/null 2>&1; then
     node "$repo_root/scripts/build.mjs" >/dev/null
   else
-    echo "warning: node not found — skipping build; skills/*/references/ may be stale" >&2
+    echo "warning: node not found — skipping build; skills/*/SKILL.md may be stale" >&2
   fi
 fi
 
