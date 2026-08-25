@@ -131,6 +131,11 @@ It enforces the folder invariants too, so none of them relies on a reviewer noti
   silently break the other.
 - `install.ps1` uses a directory **junction**, not a symlink, because junctions need no admin
   rights on Windows. Uninstall calls `.Delete()` on the link so target contents survive.
+- **Don't use a `--dry-run` fetch to preview anything.** `git fetch --prune --dry-run --porcelain`
+  prints exactly the right list, but it is still a fetch, and output-condensing wrappers (a
+  token-filtering git proxy, for one) replace the whole thing with a success line — so the preview
+  reads as "nothing stale" while refs are. `sync-base` compares `git for-each-ref` against
+  `git ls-remote` instead. The other `--dry-run` forms print the remote URL, PAT included.
 - **Don't add a divergence probe to stage 0.** A `git rev-list --left-right --count <remote>/HEAD...HEAD`
   line looks free there, but `refs/remotes/<remote>/HEAD` is unset in plenty of clones and the line
   then goes `fatal: ambiguous argument` on every run. The branch stage owns that check, and spends a
