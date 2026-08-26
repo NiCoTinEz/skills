@@ -12,15 +12,15 @@ remote: `gh` for `github.com`, `az repos` for `dev.azure.com` / `*.visualstudio.
 
 | Skill | branch | commit | push | PR |
 |---|:--:|:--:|:--:|:--:|
-| `branch-commit-push-pr` | ✅ | ✅ | ✅ | ✅ |
-| `branch-commit-push` | ✅ | ✅ | ✅ | — |
-| `branch-commit` | ✅ | ✅ | — | — |
-| `commit-push-pr` | — | ✅ | ✅ | ✅ |
-| `commit-push` | — | ✅ | ✅ | — |
-| `commit` | — | ✅ | — | — |
-| `push-pr` | — | — | ✅ | ✅ |
 | `branch` | ✅ | — | — | — |
+| `branch-commit` | ✅ | ✅ | — | — |
+| `branch-commit-push` | ✅ | ✅ | ✅ | — |
+| `branch-commit-push-pr` | ✅ | ✅ | ✅ | ✅ |
+| `commit` | — | ✅ | — | — |
+| `commit-push` | — | ✅ | ✅ | — |
+| `commit-push-pr` | — | ✅ | ✅ | ✅ |
 | `push` | — | — | ✅ | — |
+| `push-pr` | — | — | ✅ | ✅ |
 | `pr` | — | — | — | ✅ |
 
 `branch-*` create a branch. `commit-*` use the branch already checked out; `commit` alone stops
