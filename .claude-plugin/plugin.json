@@ -1,7 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "nicotinez-skills",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Git workflows for branch / commit / push / PR and base-branch synchronization on GitHub or Azure DevOps.",
   "author": {
     "name": "Sukoljesd Seesuwankul",

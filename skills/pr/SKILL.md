@@ -220,6 +220,17 @@ Parse org, project and repo out of the redacted `<remote>` URL: the three path s
 project names, and if the parse looks wrong confirm with
 `az repos list --organization <org> --project <project> --query "[].name" -o tsv`.
 
+**Ask two things before building the command — every Azure DevOps pull request, no exceptions,**
+unless the user's invocation already answered them (an explicit `--auto-complete` / `--work-items`
+argument this turn skips its ask). Neither has a GitHub equivalent, so this section only:
+
+- **Auto-complete** — merge automatically once policies and reviews are satisfied? Yes adds
+  `--auto-complete true --delete-source-branch true` — completion and source-branch cleanup are one
+  decision, not two asks. No omits both.
+- **Work item** — bind one? Check `<branch>` for a leading `AB#<id>` or bare number first and offer
+  it as the default rather than asking blind; a plain "no" adds nothing. Several IDs are
+  space-separated in one `--work-items` flag.
+
 ```bash
 az repos pr create --organization "https://dev.azure.com/<org>" --project "<project>" --repository "<repo>" --source-branch "<branch>" --target-branch "<base>" --title "<title>" --description "## Summary" "- first point" "" "## Test plan" "- how it was checked" --query "{id:pullRequestId,repo:repository.webUrl}" -o tsv
 ```
@@ -230,9 +241,7 @@ az repos pr create --organization "https://dev.azure.com/<org>" --project "<proj
 - The URL to report is the repository web URL, then `pullrequest`, then the pull request ID — the
   two tab-separated values `--query` returns, in that order. That scoped query is deliberate:
   default JSON returns the whole pull request object, 253 lines against 1.
-- Opt-in flags, only when the user asks: `--draft true`, `--auto-complete true`, `--squash true`,
-  `--delete-source-branch true`, `--reviewers <email…>`, `--work-items <id…>` — the last when the
-  user supplies a work-item ID or the branch name carries one.
+- Opt-in flags, only when the user asks: `--draft true`, `--squash true`, `--reviewers <email…>`.
 
 ## Stage 5 — Report
 
