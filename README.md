@@ -38,7 +38,9 @@ the end of the cycle the others start. It resolves `<base>` the same four ways t
 guessing, and a dirty tree stops it: `git switch` would carry uncommitted work onto the base branch
 without a word. The one thing it can delete is stale remote-tracking refs, and it asks first, every
 run — showing which refs would go before you answer. Local branches and the remote itself are never
-touched. Run it in a folder that is not a repo but holds them — `Library/`, say — and it asks which
+touched. Once it lands on the refreshed base it also lists the local branches now merged into it —
+the one just left usually among them — and reports them with a `git branch -d` line to copy. That is
+a report, not a second delete question: it never runs it. Run it in a folder that is not a repo but holds them — `Library/`, say — and it asks which
 to sync: all of them, a named few, or none. Each repo keeps its own base and its own dirty check, and
 a dirty one is skipped rather than switched.
 
