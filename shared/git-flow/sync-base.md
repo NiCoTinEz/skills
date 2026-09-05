@@ -94,6 +94,7 @@ Then pull only the repos that reported landing on their base:
 
 ```bash
 git -C <dir> pull --ff-only origin <base>
+git -C <dir> branch --merged <base>
 ```
 
 **Why the pull still waits for its own call**, and why it matters more here than with one repo: a
@@ -136,7 +137,14 @@ Then, once that reports you are actually on `<base>`:
 ```bash
 git pull --ff-only <remote> <base>
 git log --oneline -1
+git branch --merged <base>
 ```
+
+**The third line rides here and nowhere else.** What is merged into `<base>` is only true once
+`<base>` has been fast-forwarded, so the same line one call earlier answers about the base you
+arrived with, not the one you left with. It reads; it deletes nothing — see *Merged local branches*
+below. No `--format`: `%(refname:short)` is the glob that breaks in the user's own shell, exactly
+as the prune preview warns.
 
 **Why two, when one call is the rule everywhere else.** `git switch <base>` can fail — a base that
 doesn't exist locally and is ambiguous across remotes, or a convention line naming a branch this
@@ -165,6 +173,23 @@ dirty     src/Cache.cs, README.md
   stop and report, never rebase, reset, force or merge past it.
 - Detached HEAD, merge in progress and rebase in progress are stage 0 guardrails: stop and report.
 
+## Merged local branches — report, never delete
+
+The listing above names local branches already merged into `<base>`, the branch just left usually
+among them. **This skill does not delete them and does not ask to.** It already spends the run's one
+delete question on the prune, and that question's answer was given on the promise that no local
+branch goes with it; a second delete in the same run turns both into a reflex yes. Report them and
+hand over the command instead:
+
+- `git branch -d` and never `-D` — `-d` refuses a branch that is not actually merged, so the command
+  handed over carries its own guard even if the listing is stale by the time it runs.
+- Squash-merged pull requests leave the branch a non-ancestor of `<base>`, so `--merged` never lists
+  them. The line under-reports rather than over-reports; treat it as a hint, not an inventory, and
+  never present it as the full set of finished branches.
+- `<base>` itself always lists as merged into itself. Drop it, and drop the `*` the current branch
+  carries, before reporting a count.
+- Nothing merged, or nothing beyond `<base>`, means no line at all — an empty `stale` line is noise.
+
 ## Stage 5 — Report
 
 Name the branch it came from and the range pulled. One compact block, no prose padding:
@@ -173,9 +198,14 @@ Name the branch it came from and the range pulled. One compact block, no prose p
 branch    development  (was feat/add-cache-retry)
 prune     <remote>  2 stale refs removed  feat/add-cache-retry, fix/null-ref-login
 pull      <remote>/development  4 new commits  a1b2c3d..e4f5a6b
+stale     2 local branches merged into development
+          feat/add-cache-retry, fix/null-ref-login
+          delete: git branch -d feat/add-cache-retry fix/null-ref-login
 ```
 
-The `prune` line always appears: `declined`, `nothing stale`, or the refs that went.
+The `prune` line always appears: `declined`, `nothing stale`, or the refs that went. The `stale`
+line appears only when there is something to name, and is the whole of what this skill does about
+local branches.
 
 A folder of repos reports a header and one line per repo, dirty ones included so the skips are
 visible:
@@ -187,8 +217,14 @@ repo      Net_Framework.Result  main  4 new commits  a1b2c3d..e4f5a6b
 repo      Net_Framework.Cache   main  already up to date
 dirty     Net_Model.Table       src/Table.cs — not switched, not pulled
 failed    Net_Repository.Sql    switch refused: local base holds commits the remote does not
+stale     Net_Framework.Result 3, Net_Framework.Cache 1
 ```
 
+**A folder run reports stale branches as counts only** — no names, no delete command. Fifteen repos'
+worth of branch names is a wall nobody audits, and one `git branch -d` line per repo is not a thing
+to paste. Name them by running the skill in the one repo that matters.
+
 Already current → `pull      already up to date`. Already on `<base>` → say so on the `branch` line
-instead of naming a previous branch. **Deleting the branch you left is not this skill's job**, even
-when its pull request has merged.
+instead of naming a previous branch. **Deleting the branch you left is still not this skill's job**,
+even when its pull request has merged and the `stale` line names it — that line is a report and a
+command to copy, not an offer to run it.

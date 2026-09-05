@@ -136,6 +136,10 @@ It enforces the folder invariants too, so none of them relies on a reviewer noti
   token-filtering git proxy, for one) replace the whole thing with a success line — so the preview
   reads as "nothing stale" while refs are. `sync-base` compares `git for-each-ref` against
   `git ls-remote` instead. The other `--dry-run` forms print the remote URL, PAT included.
+- **`sync-base` spends exactly one delete question, on the prune.** Its merged-local-branch listing
+  rides the pull call and only ever reports — the prune ask is answered on the stated promise that
+  no local branch goes with it, and a second delete confirmation in the same run makes both a reflex
+  yes. Anything that would delete a local branch belongs in a skill of its own, not here.
 - **Don't add a divergence probe to stage 0.** A `git rev-list --left-right --count <remote>/HEAD...HEAD`
   line looks free there, but `refs/remotes/<remote>/HEAD` is unset in plenty of clones and the line
   then goes `fatal: ambiguous argument` on every run. The branch stage owns that check, and spends a

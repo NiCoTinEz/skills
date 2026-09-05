@@ -3,8 +3,9 @@ name: sync-base
 description: >
   Switch back to the repository's base branch — main, master, development, whatever this repo
   actually uses — and fast-forward it to the remote, asking first whether to prune stale
-  remote-tracking refs. In a folder that is not a repo but holds repos, it asks which of them to
-  sync. A dirty tree stops it. Use for "sync base", "back to base", "go back to main and pull".
+  remote-tracking refs and reporting which local branches are now merged. In a folder that is not a
+  repo but holds repos, it asks which of them to sync. A dirty tree stops it. Use for "sync base",
+  "back to base", "go back to main and pull".
 allowed-tools: Bash, PowerShell, Read, Glob, Grep
 ---
 
