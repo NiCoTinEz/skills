@@ -107,13 +107,18 @@ for (const skill of SKILLS) {
 // The loops above only walk STAGES and SKILLS, so anything nothing points at is invisible to them:
 // rename a stage in STAGES and the old file silently stops shipping, add a head and forget the
 // SKILLS entry and the skill never exists, leave a STAGES key no skill lists and the stage ships
-// nowhere. All three are dead weight in the repo, so fail on them. The scanned directories come
-// from STAGES itself, so a second shared/<set>/ is covered without editing this.
+// nowhere. All three are dead weight in the repo, so fail on them. Discover every shared/<set>/
+// from disk rather than from STAGES, or a completely unregistered set would escape this check.
 const stageSources = new Set(Object.values(STAGES));
-for (const dir of new Set([...stageSources].map((source) => dirname(source)))) {
-  for (const file of readdirSync(join(ROOT, dir)).sort()) {
-    if (file.endsWith(".md") && !stageSources.has(`${dir}/${file}`)) {
-      setProblems.push(`${dir}/${file} is not named in STAGES — no skill ships it`);
+for (const set of readdirSync(join(ROOT, "shared"), { withFileTypes: true })
+  .filter((entry) => entry.isDirectory())
+  .sort((a, b) => a.name.localeCompare(b.name))) {
+  const dir = `shared/${set.name}`;
+  for (const file of readdirSync(join(ROOT, dir), { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
+    .sort((a, b) => a.name.localeCompare(b.name))) {
+    if (!stageSources.has(`${dir}/${file.name}`)) {
+      setProblems.push(`${dir}/${file.name} is not named in STAGES — no skill ships it`);
     }
   }
 }

@@ -45,8 +45,8 @@ git rev-parse --show-toplevel
 git status --porcelain=v1 --branch
 git symbolic-ref --quiet --short HEAD
 git log --oneline -5
-git diff --stat
-git diff --staged --stat
+git diff --shortstat
+git diff --staged --shortstat
 ```
 
 An unborn HEAD makes `git log` fail: report `no commits yet` and carry on, a valid state for a
@@ -57,9 +57,9 @@ commit skill. Read out of that one answer:
 | repo root, current branch | lines 1 and 3 |
 | `<branch>` | line 3; the branch created or reused by stage 1, or the current branch when no stage 1 runs |
 | dirty / staged | porcelain lines other than the `##` header; staged = first column not space or `?` |
-| what changed | the two `--stat` lines — enough to name a branch and write a message; a tree big enough to flood them falls back to `git diff --shortstat` plus the porcelain paths |
+| what changed | porcelain paths plus the two bounded `--shortstat` summaries — enough to name a branch and write a message without flooding a large tree |
 
-**Command discipline.** Keep output scoped — `--stat`, `--quiet`, `--porcelain`,
+**Command discipline.** Keep output scoped — `--shortstat`, `--quiet`, `--porcelain`,
 `--query … -o tsv` — and never run a command whose full output you won't read. Every line must run
 in Bash *and* PowerShell: one command per line, no `\` continuation (a PowerShell parse error), no
 backtick (breaks Bash), and no nested quotes inside `--query` (PowerShell strips the inner pair, so

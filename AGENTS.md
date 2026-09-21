@@ -125,8 +125,8 @@ It enforces the folder invariants too, so none of them relies on a reviewer noti
   drift out of the build's reach;
 - every `shared/<set>/*.md` stage is named in `STAGES`, every `STAGES` key is listed by some skill,
   and every `heads/*.md` has a `SKILLS` entry — so a renamed stage, a stage no skill carries or an
-  unregistered head fails instead of silently shipping nothing. The directories scanned come from
-  `STAGES`, so a second `shared/<set>/` is covered without touching the check;
+  unregistered head fails instead of silently shipping nothing. Source-set directories are scanned
+  from disk, so even a completely unregistered `shared/<set>/` is covered;
 - no `references/` folder survives and no `SKILL.md` cites one — `npm run build` deletes a leftover,
   `npm run check` reports it;
 - `scripts/*.sh` and `scripts/*.mjs` are mode `100755` **in the index** — the bit the README tells
