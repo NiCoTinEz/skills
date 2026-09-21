@@ -13,8 +13,8 @@ Run stage **0**, then the procedure below, then stage **5**. **Do not run
 stages 1-4** — never create a branch, never commit, never push, never open a pull request. Stage 0
 skips the `gh` / `az` check, and **resolving `<base>` correctly is the entire point of this skill**:
 follow the order below, because a hardcoded `main` / `master` guess lands the user on the wrong
-branch or on none at all. Three tool calls: preflight, switch, pull — with one question between the
-first two, because this is the only skill in the set that deletes anything. Folder mode normally
+branch or on none at all. Eligible runs use three calls: preflight, switch, pull, with one prune
+question between the first two. Ineligible repos stop before that question. Folder mode normally
 runs four, batching the per-repo probe, and asks which repos to sync first. Missing remote/base
 information uses the shared fallback probes, batched across unresolved repos before proceeding.
 
