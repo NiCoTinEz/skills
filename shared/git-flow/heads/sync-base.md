@@ -14,9 +14,9 @@ stages 1-4** — never create a branch, never commit, never push, never open a p
 skips the `gh` / `az` check, and **resolving `<base>` correctly is the entire point of this skill**:
 follow the order below, because a hardcoded `main` / `master` guess lands the user on the wrong
 branch or on none at all. Three tool calls: preflight, switch, pull — with one question between the
-first two, because this is the only skill in the set that deletes anything. A folder that is not a
-repo but holds repos runs four — the per-repo probe that stage 0 can't do for them — and gains one
-more question: which repos to sync. Four whether that is one repo or thirty.
+first two, because this is the only skill in the set that deletes anything. Folder mode normally
+runs four, batching the per-repo probe, and asks which repos to sync first. Missing remote/base
+information uses the shared fallback probes, batched across unresolved repos before proceeding.
 
 Arguments the user may pass: a branch to treat as `<base>`, or a remote name. Honour them, and never
 "normalise" the casing of a name you were given.

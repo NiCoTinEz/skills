@@ -24,6 +24,7 @@ commit skill. Read out of that one answer:
 | Fact | From |
 |---|---|
 | repo root, current branch | lines 1 and 3 |
+| `<branch>` | line 3; replace it with the branch created or reused by stage 1 |
 | dirty / staged | porcelain lines other than the `##` header; staged = first column not space or `?` |
 | what changed | the two `--stat` lines — enough to name a branch and write a message |
 

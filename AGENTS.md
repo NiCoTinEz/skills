@@ -48,6 +48,8 @@ cost 2-5 tool calls before any work and bought nothing over having the body alre
   both `package.json` and `.claude-plugin/plugin.json` whenever a shipped skill body changes.
 - Skill body text must not name one specific agent ("this plugin", "Claude will…"). Write it for
   any agent.
+- **Examples are public.** Use fictional repository names and generic paths; never copy the user's
+  actual project names or private workspace details into skill bodies or documentation.
 
 ## Verification gate before claiming done
 

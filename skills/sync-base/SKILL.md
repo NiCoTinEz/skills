@@ -16,9 +16,9 @@ stages 1-4** — never create a branch, never commit, never push, never open a p
 skips the `gh` / `az` check, and **resolving `<base>` correctly is the entire point of this skill**:
 follow the order below, because a hardcoded `main` / `master` guess lands the user on the wrong
 branch or on none at all. Three tool calls: preflight, switch, pull — with one question between the
-first two, because this is the only skill in the set that deletes anything. A folder that is not a
-repo but holds repos runs four — the per-repo probe that stage 0 can't do for them — and gains one
-more question: which repos to sync. Four whether that is one repo or thirty.
+first two, because this is the only skill in the set that deletes anything. Folder mode normally
+runs four, batching the per-repo probe, and asks which repos to sync first. Missing remote/base
+information uses the shared fallback probes, batched across unresolved repos before proceeding.
 
 Arguments the user may pass: a branch to treat as `<base>`, or a remote name. Honour them, and never
 "normalise" the casing of a name you were given.
@@ -49,6 +49,7 @@ commit skill. Read out of that one answer:
 | Fact | From |
 |---|---|
 | repo root, current branch | lines 1 and 3 |
+| `<branch>` | line 3; replace it with the branch created or reused by stage 1 |
 | dirty / staged | porcelain lines other than the `##` header; staged = first column not space or `?` |
 | what changed | the two `--stat` lines — enough to name a branch and write a message |
 
@@ -62,12 +63,12 @@ form exists, both variants are given.
 ## Stage 0 — the remote half
 
 These lines belong in the **same call** as the six above; this skill reaches a remote, so it needs
-`<remote>` and `<base>` before any later stage runs.
+`<remote>` and `<base>` before any later stage runs. Use a user-specified remote instead of `origin`.
 
 ```bash
 git remote get-url origin | sed -E 's#(://)[^@/]+@#\1#'
 git symbolic-ref --quiet refs/remotes/origin/HEAD
-git fetch origin --quiet
+git fetch origin --no-prune --quiet
 grep -nisE "base branch|pull request.*(target|into|against)" CLAUDE.md AGENTS.md CONTRIBUTING.md
 ```
 
@@ -80,34 +81,38 @@ Select-String -Path CLAUDE.md,AGENTS.md,CONTRIBUTING.md -Pattern "base branch","
 
 That strips any user-info from the URL, so what prints is safe to keep and to report. **Never print
 `git remote -v`** — it shows every URL unredacted, passwords and PATs included. `grep -s` matters:
-without it, the three convention files not existing is three warning lines in most repos. This fetch
-serves the branch, commit, push and pull request stages — none of them fetches again. What the extra
-lines give you:
+without it, absent convention files print warnings. This fetch refreshes refs for the later stages;
+the standalone `commit` skill omits this remote half. `--no-prune` overrides automatic pruning in
+Git configuration: preflight must never delete refs. What the extra lines give you:
 
 | Fact | From |
 |---|---|
 | platform, `<remote>` | the redacted URL: `github.com` → GitHub + `gh`; `dev.azure.com`, `.visualstudio.com`, `ssh.dev.azure.com` → Azure DevOps + `az repos`; neither → unknown, so no automated pull request, though `<remote>` still stands |
 | `<base>` | the convention grep wins outright; otherwise `refs/remotes/origin/HEAD` minus its prefix |
 
-**`<remote>` is `origin` unless `origin` is missing.** If it is, list names only with `git remote`
+**An explicit remote wins; otherwise use `origin` if present.** If it is missing, list names with `git remote`
 and capture one redacted URL each: a single remote wins, otherwise the one GitHub or Azure DevOps
-remote, saying why. No remote at all stops any stage needing one. Substitute the resolved name into
-every later command — never hardcode `origin` past this point.
+remote, saying why. No remote, or several still ambiguous, stops remote work and reports the choices.
+After resolving a missing remote, batch its redacted URL, HEAD and non-pruning fetch before continuing.
+Substitute the resolved name into every later command — never hardcode `origin` past this point.
 
 **`<base>` is never guessed from a hardcoded list.** A convention in `CLAUDE.md`, `AGENTS.md` or
 `CONTRIBUTING.md` outranks the platform default. If neither the grep nor
-`refs/remotes/<remote>/HEAD` answers, ask the platform once — `gh repo view --json defaultBranchRef --jq .defaultBranchRef.name`,
+`refs/remotes/<remote>/HEAD` answers, ask the platform once — `gh repo view "<host>/<owner>/<repo>" --json defaultBranchRef --jq .defaultBranchRef.name`,
 or for Azure DevOps, one line, stripping `refs/heads/` from the answer:
 
 ```bash
 az repos show --organization "https://dev.azure.com/<org>" --project "<project>" --repository "<repo>" --query defaultBranch -o tsv
 ```
 
-Cache it with `git remote set-head <remote> <branch>` so later runs skip the call. Only if all that
+Use the repository identified by the resolved remote, including in folder mode. Cache the answer with
+`git remote set-head "<remote>" "<base>"` once that tracking ref exists. Only if all that
 fails, take whichever of `<remote>/main`, `<remote>/master`, `<remote>/development`,
 `<remote>/develop` exists — and if two candidates remain plausible, take the one this ladder ranks
-higher and say which and why rather than asking. Branch names are case-sensitive, may contain `/`
-and are never re-cased: quote them. Every later stage uses `<base>`, never a literal branch name.
+higher and say which and why rather than asking. No candidate means stop and request the base.
+Batch needed fallback probes across repositories; never switch using an unresolved base or remote.
+Branch names are case-sensitive and may contain `/`: quote them without changing case.
+Every later stage uses `<base>`, never a literal branch name.
 
 ## Hard guardrails
 
@@ -118,10 +123,11 @@ Refuse and explain rather than working around any of these:
 - **No `--force`, no `--force-with-lease`, no `--no-verify`**, and no push to a protected or default
   branch unless the user asks for it in this turn.
 - **No amend, no rebase, no reset** of existing commits. New commits only.
-- **No `git add .` and no `git add -A`.** Stage named paths from the porcelain listing. Never stage
+- **No `git add .` and no `git add -A`.** Stage named paths from the porcelain listing. Never stage or commit
   `.env*`, `*.pem`, `*.key`, `*.pfx`, `id_rsa*`, `*.p12`, `secrets.*`,
   `appsettings.*.local.json`, `*.publishsettings`, a credential or token file, or anything whose
-  diff carries an obvious live secret — flag it and leave it unstaged.
+  diff carries an obvious live secret. Check staged content too. If already staged, stop and name
+  the paths without exposing secrets or changing the user's index; otherwise leave it unstaged.
 - **Merge, rebase, cherry-pick, revert, bisect or sequencer operation in progress, or detached
   HEAD** — stop, report the state, let the user resolve it.
 
@@ -134,31 +140,25 @@ flow.
 
 ## Stage 0 addition — what a prune would remove
 
-Two extra lines, in the **same call** as stage 0, after its fetch:
+Two extra lines in stage 0's **same call**, after its non-pruning fetch, using the resolved remote:
 
 ```bash
-git for-each-ref --format='%(refname:short)' --exclude 'refs/remotes/<remote>/HEAD' 'refs/remotes/<remote>/**'
+git for-each-ref --format='%(refname)' 'refs/remotes/<remote>/'
 git ls-remote --heads --refs "<remote>"
 ```
 
-The first lists the remote-tracking refs this clone holds, the second the branches the remote
-actually has. **A name in the first that is missing from the second is what a prune would delete** —
-usually the branch of a merged pull request the platform already deleted upstream. Nothing missing
-means nothing is stale.
+Compare **bare branch names**, preserving case and slashes: from the first output, discard
+`refs/remotes/<remote>/HEAD` and strip the exact `refs/remotes/<remote>/` prefix. From the second,
+ignore the object-ID column and strip `refs/heads/` from the ref column. Only names present locally
+but absent remotely are stale. Both commands must succeed; failed or unavailable output is **not**
+an empty remote or proof that nothing is stale. Resolve failures before asking or mutating refs.
 
-Two lines rather than the one obvious one, for two reasons. `git fetch --prune --dry-run` and
-`git remote prune --dry-run` both print the remote URL — the second labels it `URL:` — and either can
-carry a password or PAT. And `--dry-run --porcelain`, which does print a clean list and nothing else,
-is a *fetch*: wrappers that condense fetch output swallow the list and leave you concluding nothing
-is stale when refs are. The pair above prints only ref names, and nothing condenses it. Don't pipe
-either through `sed` or `awk` to tidy the output — see *Command discipline*; the extra column is
-cheaper than a line that only runs in one shell. If the git in use rejects `--exclude`, drop that
-flag and ignore the bare `<remote>` entry it then prints, which is `HEAD`.
+Avoid `fetch --prune --dry-run` and `remote prune --dry-run`: their output can expose credentialed
+URLs. Fetch wrappers can also swallow a `--dry-run --porcelain` preview. These two read commands
+return full ref names and, for `ls-remote`, object IDs. Interpret the columns without shell-specific
+`sed` / `awk` pipelines. Full ref names also avoid ambiguous shortened names and `--exclude` support.
 
-**Keep both quotes exactly as written.** Unquoted, `%(refname:short)` and `refs/remotes/<remote>/**`
-are glob patterns to zsh, which fails the whole line with `no matches found` before git ever runs,
-and `(…)` is a subexpression to PowerShell. This is the one line in the set where dropping a quote
-breaks it in the *user's* shell rather than the other one.
+**Keep the format and ref-prefix quotes:** parentheses have special meaning in zsh and PowerShell.
 
 ## Stage 0 addition — this folder may not be the repo
 
@@ -192,49 +192,50 @@ arrives:**
 - **Nothing** — stop, saying the folder itself is not a repo, so no base was touched.
 
 Detection came back empty → the folder holds no repos at all. Report that and stop; there is nothing
-to ask. Empty at this depth but the folder plainly holds project groups (a `Code/` of `Library/` and
-`Product/`) → one call for the deeper sweep before asking, because those repos sit a level further
+to ask. Empty at this depth but the folder plainly holds project groups (a `workspace/` of `apps/` and
+`packages/`) → one call for the deeper sweep before asking, because those repos sit a level further
 down:
 
 ```bash
 find . -mindepth 3 -maxdepth 3 -name .git
 ```
 
-### The fan-out — three calls, whatever the count
+### The fan-out — batch each phase across the selected repos
 
-Three after stage 0, so four in total, and four whether the answer was one repo or thirty. The shape
-is the one stage 0 already set: probe, land, pull. Every line carries
-`git -C <dir>` so nothing depends on the working directory, and the prune question is asked **once**
-for the whole run.
+Normally three calls after detection: probe, land, pull, regardless of repo count. Batch any shared
+remote/base fallback probes across all unresolved repos before landing; the four-call budget is
+not a reason to guess. Ask the prune question **once**, after all eligible repos have a preview.
 
-Probe every selected repo, two lines each:
-
-```bash
-git -C <dir> status --porcelain=v1 --branch
-git -C <dir> symbolic-ref --quiet refs/remotes/origin/HEAD
-```
-
-Each repo brings its own `<base>` and its own dirty state — they are separate repos and share
-neither. **A dirty repo is dropped from the run**, named in the report, and never switched.
-
-Land the clean ones, one line each. Drop `--prune` where pruning was declined:
+Probe every selected repo with **the full stage 0**, including its remote half and the two preview
+lines above. Prefix every Git command with `git -C "<dir>"`; prefix convention-file paths with
+`<dir>/` in the grep or PowerShell `Select-String`. Do not repeat folder detection or CLI checks.
+Use a supplied remote, otherwise initially probe `origin`, then apply the shared remote resolver.
+The additional preview lines for each resolved repo are:
 
 ```bash
-git -C <dir> fetch origin --prune --quiet
-git -C <dir> switch <base>
+git -C "<dir>" for-each-ref --format='%(refname)' 'refs/remotes/<remote>/'
+git -C "<dir>" ls-remote --heads --refs "<remote>"
 ```
 
-Then pull only the repos that reported landing on their base:
+Resolve each repo's `<remote>` with the shared resolver. For `<base>`, use explicit user values,
+then repo convention, remote HEAD, platform API, ranked candidates. Scope API queries
+to that repo's resolved remote. Missing remote HEAD does not skip the other rungs. Repeat preview
+lines with the corrected remote if its initial probe failed; never reuse another repo's preview.
+After fallbacks, drop dirty repos and any repo with a guardrail, unresolved base/remote, or a fetch
+or preview still failing. Report each skip; never switch or pull it. If none remain, stop without asking.
+
+Land eligible repos using the single-repo landing block below, with `git -C "<dir>"` on each line
+and that repo's resolved values. The probe already fetched; declining pruning needs no second fetch.
+Then pull only repos whose landing commands succeeded and whose current branch is their base:
 
 ```bash
-git -C <dir> pull --ff-only origin <base>
-git -C <dir> branch --merged <base>
+git -C "<dir>" pull --ff-only --no-prune "<remote>" "<base>"
+git -C "<dir>" log --oneline -1
+git -C "<dir>" branch --merged "<base>"
 ```
 
-**Why the pull still waits for its own call**, and why it matters more here than with one repo: a
-switch that fails leaves that repo on the branch it was already on, and a pull batched behind it
-fast-forwards *that* branch instead. With many repos in one call you cannot tell which failed until
-every line has already run, so one repo's failed switch would quietly move one repo's wrong branch.
+Never batch pull behind an unchecked switch: a failed switch would leave pull targeting the old
+branch. A failed pull is reported as failed; do not describe its merged-branch list as refreshed.
 
 ## Always ask before pruning
 
@@ -242,7 +243,7 @@ every line has already run, so one repo's failed switch would quietly move one r
 *Act, don't ask* above, because pruning deletes refs. Ask every run, even when the preview came back
 empty, and put in the question:
 
-- what would go — the refs the preview named, or that nothing is stale;
+- what would go — the preview's refs grouped by repo and remote, or that nothing is stale;
 - what it touches — **remote-tracking** refs only, for branches already gone from `<remote>`. It
   never deletes a local branch and never changes anything on the remote;
 - that declining still syncs the base; prune is the only thing being decided.
@@ -254,31 +255,37 @@ Until the answer arrives, neither block below has run.
 Land on the base first. Pruning approved:
 
 ```bash
-git fetch <remote> --prune --quiet
-git switch <base>
+git fetch --prune --no-prune-tags --refmap= --quiet "<remote>" '+refs/heads/*:refs/remotes/<remote>/*'
+git for-each-ref --format='%(refname)' 'refs/remotes/<remote>/'
+git switch "<base>"
+git symbolic-ref --quiet --short HEAD
 git rev-parse --short HEAD
 ```
 
-Pruning declined — stage 0 already fetched, so there is nothing to fetch again:
+The explicit branch refspec and empty refmap restrict pruning to this remote's tracking branches;
+`--no-prune-tags` overrides tag-pruning configuration. Compare before/after refs to report actual
+removals. This fetch refreshes after approval; `git remote prune` would still contact the remote
+and can print its credentialed URL, so it is not a network-free replacement.
+
+Pruning declined — stage 0 already fetched:
 
 ```bash
-git switch <base>
+git switch "<base>"
+git symbolic-ref --quiet --short HEAD
 git rev-parse --short HEAD
 ```
 
-Then, once that reports you are actually on `<base>`:
+Continue only if landing succeeded and the reported branch is `<base>`. Then:
 
 ```bash
-git pull --ff-only <remote> <base>
+git pull --ff-only --no-prune "<remote>" "<base>"
 git log --oneline -1
-git branch --merged <base>
+git branch --merged "<base>"
 ```
 
-**The third line rides here and nowhere else.** What is merged into `<base>` is only true once
-`<base>` has been fast-forwarded, so the same line one call earlier answers about the base you
-arrived with, not the one you left with. It reads; it deletes nothing — see *Merged local branches*
-below. No `--format`: `%(refname:short)` is the glob that breaks in the user's own shell, exactly
-as the prune preview warns.
+**List merged branches only after a successful pull**, in both flows. If pull fails, ignore the
+listing and report failure. `--no-prune` also prevents pull's internal fetch from deleting refs,
+even when pruning was declined or Git configuration enables it.
 
 **Why two, when one call is the rule everywhere else.** `git switch <base>` can fail — a base that
 doesn't exist locally and is ambiguous across remotes, or a convention line naming a branch this
@@ -286,7 +293,7 @@ repo doesn't have. Batched, the pull would then run on the branch you are still 
 fast-forward *that* to the base; a just-merged feature branch is strictly behind its base, so it
 would move without complaint. The two `HEAD` readings also give the report its range for free.
 
-- **A dirty tree stops this skill before it touches anything**, so preflight decides whether the
+- **A dirty tree stops this skill before switching or pulling**, so preflight decides whether the
   first block runs at all — it already listed the porcelain status, and a guard *inside* the block
   would be useless, since every line runs before you see any of the output. `git switch` carries
   uncommitted changes onto the target branch without a word. Anything modified, staged or untracked:
@@ -345,13 +352,13 @@ A folder of repos reports a header and one line per repo, dirty ones included so
 visible:
 
 ```
-folder    Library  18 repos  15 synced, 2 dirty, 1 failed
+folder    projects  4 repos  2 synced, 1 dirty, 1 failed
 prune     declined
-repo      Net_Framework.Result  main  4 new commits  a1b2c3d..e4f5a6b
-repo      Net_Framework.Cache   main  already up to date
-dirty     Net_Model.Table       src/Table.cs — not switched, not pulled
-failed    Net_Repository.Sql    switch refused: local base holds commits the remote does not
-stale     Net_Framework.Result 3, Net_Framework.Cache 1
+repo      repo-a  main  4 new commits  a1b2c3d..e4f5a6b
+repo      repo-b  main  already up to date
+dirty     repo-c  README.md — not switched, not pulled
+failed    repo-d  pull refused: local and remote base have diverged
+stale     repo-a 3, repo-b 1
 ```
 
 **A folder run reports stale branches as counts only** — no names, no delete command. Fifteen repos'

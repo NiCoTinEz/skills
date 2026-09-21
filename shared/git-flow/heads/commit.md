@@ -10,7 +10,8 @@ allowed-tools: Bash, PowerShell, Read, Glob, Grep
 Run stages **0 → 2 → 5**, all of them below. **Skip stages 1, 3 and 4** — never create or switch
 branches, never push, never open a pull request. The commit stays local, so stage 0 has no remote
 half at all: no `<remote>`, no `<base>`, no fetch, no CLI check, and the report names the current
-branch directly. Two tool calls for one commit.
+branch directly. Two calls for one commit when its content is already reviewed; otherwise batch
+the needed content inspection before committing.
 
 **This is the best skill in the set for splitting a mixed tree.** Nothing is pushed, so a wrong
 grouping costs only a local reset the user can ask for. Split by logical change as stage 2

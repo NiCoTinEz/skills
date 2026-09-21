@@ -37,12 +37,17 @@ behind local HEAD, stops it with a pointer to `push-pr` instead.
 the end of the cycle the others start. It resolves `<base>` the same four ways they do rather than
 guessing, and a dirty tree stops it: `git switch` would carry uncommitted work onto the base branch
 without a word. The one thing it can delete is stale remote-tracking refs, and it asks first, every
-run — showing which refs would go before you answer. Local branches and the remote itself are never
-touched. Once it lands on the refreshed base it also lists the local branches now merged into it —
+run — showing which refs would go before you answer. Pruning never deletes local branches or changes
+the remote itself. Once it lands on the refreshed base it also lists the local branches now merged into it —
 the one just left usually among them — and reports them with a `git branch -d` line to copy. That is
-a report, not a second delete question: it never runs it. Run it in a folder that is not a repo but holds them — `Library/`, say — and it asks which
+a report, not a second delete question: it never runs it.
+
+Run it in a folder that is not a repo but holds them — `projects/`, say — and it asks which
 to sync: all of them, a named few, or none. Each repo keeps its own base and its own dirty check, and
-a dirty one is skipped rather than switched.
+a dirty one is skipped rather than switched. Remote and base resolution and prune previews run per
+repo, with fallback probes batched when needed. Preflight and pull explicitly disable automatic
+pruning; approved pruning is limited to the selected remote's tracking branches, including when
+Git is configured to prune tags.
 
 **Conventions**
 
@@ -75,11 +80,15 @@ They share one procedure, split per stage so a skill carries only what it runs �
 
 | Source | Holds | Goes to |
 |---|---|---|
-| [`shared/git-flow/core.md`](./shared/git-flow/core.md) | preflight, platform detection, base-branch resolution, guardrails, report format | all 11 |
+| [`shared/git-flow/core.md`](./shared/git-flow/core.md) | local preflight, current branch, command discipline | all 11 |
+| [`remote.md`](./shared/git-flow/remote.md) | remote/platform detection, base resolution, non-pruning fetch | all except `commit` |
+| [`guardrails.md`](./shared/git-flow/guardrails.md) | stops, secret checks including pre-staged content | all 11 |
 | [`branch.md`](./shared/git-flow/branch.md) | stage 1 | the 4 `branch*` |
 | [`commit.md`](./shared/git-flow/commit.md) | stage 2 | the 6 `*commit*` |
 | [`push.md`](./shared/git-flow/push.md) | stage 3 | the 6 `*push*` |
 | [`pr.md`](./shared/git-flow/pr.md) | `gh`/`az` preflight, stage 4, GitHub + Azure DevOps calls | the 4 `*pr` |
+| [`report.md`](./shared/git-flow/report.md) | completed stages, commits and pre-staged paths included | all except `sync-base` |
+| [`sync-base.md`](./shared/git-flow/sync-base.md) | preview, folder mode, switch/pull and its own report | `sync-base` |
 
 Edit a source, run `npm run build`, and every skill that carries it picks the change up.
 

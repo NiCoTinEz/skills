@@ -8,7 +8,7 @@ allowed-tools: Bash, PowerShell, Read, Glob, Grep
 ---
 
 Run stages **0 → 1 → 2 → 3 → 4 → 5** — the whole procedure, all of it below. Roughly six tool
-calls: one preflight, one branch, one per commit, one push, two for the pull request. Don't improvise
+calls, plus content inspection if needed: preflight, branch, one per commit, push, two for the PR. Don't improvise
 the commands from memory; the blocks below are written to be run as they stand.
 
 If a CLI or the `azure-devops` extension is missing, **ask the user to install it with the exact
