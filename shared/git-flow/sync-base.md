@@ -18,7 +18,8 @@ URLs. Fetch wrappers can also swallow a `--dry-run --porcelain` preview. These t
 return full ref names and, for `ls-remote`, object IDs. Interpret the columns without shell-specific
 `sed` / `awk` pipelines. Full ref names also avoid ambiguous shortened names and `--exclude` support.
 
-**Keep the format and ref-prefix quotes:** parentheses have special meaning in zsh and PowerShell.
+Keep `'%(refname)'` quoted so the shell passes Git's format literally. Replace `<remote>` before
+running the command and keep the ref prefix quoted as one argument.
 
 ## Stage 0 addition — this folder may not be the repo
 
@@ -79,8 +80,9 @@ git -C "<dir>" ls-remote --heads --refs "<remote>"
 
 Resolve each repo's `<remote>` with the shared resolver. For `<base>`, use explicit user values,
 then repo convention, remote HEAD, platform API, ranked candidates. Scope API queries
-to that repo's resolved remote. Missing remote HEAD does not skip the other rungs. Repeat preview
-lines with the corrected remote if its initial probe failed; never reuse another repo's preview.
+to that repo's resolved remote. Missing remote HEAD does not skip the other rungs. If the initial
+remote probe failed, batch its redacted URL, HEAD, non-pruning fetch and preview with the corrected
+remote before proceeding; never reuse another repo's preview.
 After fallbacks, drop dirty repos and any repo with a guardrail, unresolved base/remote, or a fetch
 or preview still failing. Report each skip; never switch or pull it. If none remain, stop without asking.
 
@@ -97,11 +99,26 @@ git -C "<dir>" branch --merged "<base>"
 Never batch pull behind an unchecked switch: a failed switch would leave pull targeting the old
 branch. A failed pull is reported as failed; do not describe its merged-branch list as refreshed.
 
-## Always ask before pruning
+## Eligibility — before the prune question
 
-**This skill never prunes on its own and never skips the question** — a deliberate exception to
-*Act, don't ask* above, because pruning deletes refs. Ask every run, even when the preview came back
-empty, and put in the question:
+Apply preflight's dirty-tree and other guardrails **before asking about pruning**. Anything
+modified, staged or untracked makes that repo ineligible: name the paths and skip pruning,
+switching and pulling. In a single repo, stop; in folder mode, continue only with eligible repos.
+If none remain, report `prune skipped: <reason>` and stop without the prune question.
+
+```
+dirty     src/Cache.cs, README.md
+prune     skipped: dirty tree
+```
+
+Offer `commit` or `branch-commit` for dirty work. Stash only if the user asks in that turn; explain
+that popping after the switch applies the changes to the base branch, not the branch they came from.
+
+## Ask once for eligible repos before pruning
+
+**Never prune without approval.** Once at least one repo is eligible and its preview succeeded,
+ask once for that eligible set, even when nothing is stale. This is the exception to *Act, don't
+ask*. Repos dropped during preflight are excluded. Put in the question:
 
 - what would go — the preview's refs grouped by repo and remote, or that nothing is stale;
 - what it touches — **remote-tracking** refs only, for branches already gone from `<remote>`. It
@@ -153,25 +170,13 @@ repo doesn't have. Batched, the pull would then run on the branch you are still 
 fast-forward *that* to the base; a just-merged feature branch is strictly behind its base, so it
 would move without complaint. The two `HEAD` readings also give the report its range for free.
 
-- **A dirty tree stops this skill before switching or pulling**, so preflight decides whether the
-  first block runs at all — it already listed the porcelain status, and a guard *inside* the block
-  would be useless, since every line runs before you see any of the output. `git switch` carries
-  uncommitted changes onto the target branch without a word. Anything modified, staged or untracked:
-  name the paths and stop without running it.
-
-```
-dirty     src/Cache.cs, README.md
-          switching would carry these onto 'development'
-```
-
-  Offer `commit` or `branch-commit` first. Stash only if the user asks in that turn, and then say
-  where the stash landed: a `git stash pop` after the switch drops the changes on `<base>`, not on
-  the branch they came from.
 - **Already on `<base>`** — skip the switch, say so, still pull.
 - **No local `<base>` branch yet** — `git switch <base>` creates a tracking branch by itself; if
   that fails, `git switch --track <remote>/<base>`.
-- **`--ff-only` is deliberate.** Refused means the local base holds commits the remote does not:
-  stop and report, never rebase, reset, force or merge past it.
+- **`--ff-only` is deliberate.** A non-fast-forward refusal means the local and remote histories
+  have diverged: stop, never rebase, reset, force or merge past it. A local-only lead succeeds and
+  stays intact; report local commits still ahead if known, without claiming local/remote parity.
+  For other pull failures, report the actual error instead of diagnosing divergence.
 - Detached HEAD, merge in progress and rebase in progress are stage 0 guardrails: stop and report.
 
 ## Merged local branches — report, never delete
@@ -204,9 +209,11 @@ stale     2 local branches merged into development
           delete: git branch -d feat/add-cache-retry fix/null-ref-login
 ```
 
-The `prune` line always appears: `declined`, `nothing stale`, or the refs that went. The `stale`
-line appears only when there is something to name, and is the whole of what this skill does about
-local branches.
+The `prune` line always appears: `skipped: <reason>` if eligibility prevented the question,
+`declined` if refused, or the observed result (`nothing stale` or actual refs removed).
+If approved but never executed, say `approved, not run: <reason>`; if the prune fetch failed, report
+`failed: <error>` and any verified removals. Never imply approval or an attempted fetch was success.
+The `stale` line appears only when there are merged local branches to report after a successful pull.
 
 A folder of repos reports a header and one line per repo, dirty ones included so the skips are
 visible:

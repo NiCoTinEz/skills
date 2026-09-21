@@ -36,8 +36,9 @@ behind local HEAD, stops it with a pointer to `push-pr` instead.
 `development`, whatever this repo actually uses — and fast-forwards it (`git pull --ff-only`). It is
 the end of the cycle the others start. It resolves `<base>` the same four ways they do rather than
 guessing, and a dirty tree stops it: `git switch` would carry uncommitted work onto the base branch
-without a word. The one thing it can delete is stale remote-tracking refs, and it asks first, every
-run — showing which refs would go before you answer. Pruning never deletes local branches or changes
+without a word. The one thing it can delete is stale remote-tracking refs, and eligible runs ask once,
+even when nothing is stale — showing the preview before you answer. Ineligible repos skip that step
+and report the reason. Pruning never deletes local branches or changes
 the remote itself. Once it lands on the refreshed base it also lists the local branches now merged into it —
 the one just left usually among them — and reports them with a `git branch -d` line to copy. That is
 a report, not a second delete question: it never runs it.
