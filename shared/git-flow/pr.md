@@ -45,8 +45,7 @@ az repos pr list --organization "https://dev.azure.com/<org>" --project "<projec
 ```
 
   One ID: report its URL; several: report and ask; successful empty output: continue.
-- Title: commit subject with its Conventional Commits prefix unless repo convention differs;
-  summarise several commits in one title.
+- Title: commit subject (or summary of several), retaining its prefix unless repo convention differs.
 
 ### Call two — body and create
 
@@ -108,5 +107,7 @@ az repos pr create --organization "https://dev.azure.com/<org>" --project "<proj
 ```
 
 - `--description` takes one argument per line; an empty string adds a blank line. No body file.
+- **Description: at most 4,000 characters**, including Markdown, spaces and joined newlines.
+  Count the assembled text before create/update; shorten it while preserving summary and test results.
 - Report URL: repository web URL + `/pullrequest/` + ID, using the two returned TSV values.
 - Opt-in flags, only when the user asks: `--draft true`, `--squash true`, `--reviewers <email…>`.
