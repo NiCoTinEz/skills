@@ -55,8 +55,7 @@ commit skill. Read out of that one answer:
 | repo root, current branch | lines 1 and 3 |
 | `<branch>` | line 3; the branch created or reused by stage 1, or the current branch when no stage 1 runs |
 | dirty / staged | porcelain lines other than the `##` header; staged = first column not space or `?` |
-| what changed | the two `--stat` lines — enough to name a branch and write a message. A tree big enough
-  that they flood the answer falls back to `git diff --shortstat` plus the porcelain paths |
+| what changed | the two `--stat` lines — enough to name a branch and write a message; a tree big enough to flood them falls back to `git diff --shortstat` plus the porcelain paths |
 
 **Command discipline.** Keep output scoped — `--stat`, `--quiet`, `--porcelain`,
 `--query … -o tsv` — and never run a command whose full output you won't read. Every line must run
@@ -78,7 +77,7 @@ repo_root="$(git rev-parse --show-toplevel)"
 grep -nisE "base branch|pull request.*(target|into|against)" "$repo_root/CLAUDE.md" "$repo_root/AGENTS.md" "$repo_root/CONTRIBUTING.md"
 ```
 
-PowerShell, for the two lines with no portable form:
+PowerShell, for the lines with no portable form:
 
 ```powershell
 (git remote get-url origin) -replace '://[^@/]+@','://'
@@ -123,7 +122,9 @@ Every later stage uses `<base>`, never a literal branch name.
 
 ## Stage 0 addition — CLI preflight
 
-Append the platform's block to stage 0's **same call**, before any branch, commit or push.
+Append the platform's block to stage 0's **same call**, before any branch, commit or push. The
+platform resolves from that same call's own output, so unless it is already known, append **both**
+blocks — three read-only lines between them — and read only the resolved platform's answer.
 GitHub — this checks both installation and authentication:
 
 ```bash
@@ -144,8 +145,8 @@ PAT with `Code (read & write)` plus `Pull Request contribute` scope in `AZURE_DE
 (`TF400813`, a `401` or a prompt all mean auth). Wait for the user to resolve it, then recheck.
 
 **Unknown platform** — a remote that is neither GitHub nor Azure (see the stage 0 table) has no
-automated pull request: run neither block above, skip only stage 4, and tell the user to open it in
-the host's web UI. Any branch, commit or push stage this skill runs still completes.
+automated pull request: ignore whichever blocks ran, skip only stage 4, and tell the user to open it
+in the host's web UI. Any branch, commit or push stage this skill runs still completes.
 
 ## Hard guardrails
 
@@ -154,7 +155,7 @@ Refuse and explain rather than working around any of these:
 - **Nothing to commit** — a skill running stage 2 stops on a clean tree. For a skill that doesn't
   commit, a clean tree is normal; its own equivalent is the nothing-to-ship stop, in stage 3 or 4.
 - **No `--force`, no `--force-with-lease`, no `--no-verify`**, and no push to a protected or default
-  branch unless the user asked for it when invoking, or confirms after the stage-3 warning.
+  branch unless the user asked when invoking, or confirmed the warning stage 3 gives when it runs.
 - **No amend, no rebase, no reset** of existing commits. New commits only.
 - **No `git add .` and no `git add -A`.** Stage named paths from the porcelain listing. Never stage or commit
   `.env*`, `*.pem`, `*.key`, `*.pfx`, `id_rsa*`, `*.p12`, `secrets.*`,

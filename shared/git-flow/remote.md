@@ -11,7 +11,7 @@ repo_root="$(git rev-parse --show-toplevel)"
 grep -nisE "base branch|pull request.*(target|into|against)" "$repo_root/CLAUDE.md" "$repo_root/AGENTS.md" "$repo_root/CONTRIBUTING.md"
 ```
 
-PowerShell, for the two lines with no portable form:
+PowerShell, for the lines with no portable form:
 
 ```powershell
 (git remote get-url origin) -replace '://[^@/]+@','://'

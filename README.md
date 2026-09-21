@@ -273,9 +273,9 @@ install picks the change up on the agent's next session.
 
 `npm run check` is the gate. It fails on a `SKILL.md` that no longer matches its source, a
 frontmatter `name` that doesn't match its folder, a missing `description`, a leftover `references/`
-folder, a source stage or head nothing references, a generated body over the line budget, and
-manifest drift. CI runs the same command on every push and pull request, so the gate doesn't depend
-on anyone remembering it.
+folder, a source stage or head nothing references, a generated body over the line budget, a script
+that lost its executable bit, and manifest drift. CI runs the same command on every pull request
+and on every push to `main`, so the gate doesn't depend on anyone remembering it.
 
 Each skill is one self-contained file, deliberately: the stages used to ship as `references/*.md`
 that every skill then told the agent to read, which cost 2-5 tool calls before any work began.

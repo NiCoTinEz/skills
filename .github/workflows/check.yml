@@ -2,16 +2,25 @@ name: check
 
 # The gate in AGENTS.md only holds if something runs it. `npm run check` needs node and nothing
 # else — no install step, no dependencies — so this is the whole job.
+#
+# `push` is filtered to the base branch on purpose: `pull_request` already covers every feature
+# branch, and an unfiltered `push` ran the identical job twice on every pull request commit.
 on:
   push:
+    branches: [main]
   pull_request:
+
+permissions:
+  contents: read
 
 jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      # v7 of both: @v4 declares the node20 action runtime, which the runners now force onto
+      # node24 with a deprecation warning. These target node24 natively.
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 24
       - run: npm run check

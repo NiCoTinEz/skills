@@ -302,5 +302,9 @@ if [ "$uninstall" -eq 1 ]; then
   echo "$done_count removed, $skipped untouched"
 else
   echo "$done_count installed, $skipped skipped"
-  [ "$done_count" -gt 0 ] && echo "Restart the agent (or start a new session) to pick the skills up."
+  # Not `[ ... ] && echo`: as the script's last command that exits 1 on an all-skipped run, which is
+  # what an idempotent re-install looks like. install.ps1 exits 0 there.
+  if [ "$done_count" -gt 0 ]; then
+    echo "Restart the agent (or start a new session) to pick the skills up."
+  fi
 fi

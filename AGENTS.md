@@ -13,7 +13,7 @@ shared/<set>/heads/<name>.md        per-skill head: frontmatter, what it refuses
 shared/<set>/*.md                   one file per stage, shared by every skill that runs it
 scripts/build.mjs                   assembles shared/ -> skills/*/SKILL.md, plus manifest checks
 scripts/install.ps1 / install.sh    installs skills into each tool's skill dir
-.github/workflows/check.yml         runs `npm run check` on every push and pull request
+.github/workflows/check.yml         runs `npm run check` on pull requests and pushes to main
 .claude-plugin/plugin.json          plugin manifest — owns the authoritative skills list
 .claude-plugin/marketplace.json     marketplace entry pointing at the plugin
 ```
@@ -58,8 +58,10 @@ cost 2-5 tool calls before any work and bought nothing over having the body alre
 npm run check    # generated SKILL.md files current + manifests consistent — must pass
 ```
 
-CI (`.github/workflows/check.yml`) runs exactly that command on every push and pull request, so a
-red run means a source edit and its generated `SKILL.md` disagree — fix the source, not the output.
+CI (`.github/workflows/check.yml`) runs exactly that command on every pull request and on every
+push to `main`, so a red run means a source edit and its generated `SKILL.md` disagree — fix the
+source, not the output. `pull_request` already covers feature branches, so `push` is filtered to
+`main` rather than running the identical job twice per pull request commit.
 
 If anything about skill folders, names or frontmatter changed, confirm the ecosystem CLI still sees
 them. Cheapest real check, and it needs no push:
@@ -121,10 +123,15 @@ It enforces the folder invariants too, so none of them relies on a reviewer noti
 - no root-level `SKILL.md`;
 - every `skills/<name>/` is listed in `SKILLS`, so a hand-written `SKILL.md` can't sit there and
   drift out of the build's reach;
-- every `shared/<set>/*.md` stage is named in `STAGES` and every `heads/*.md` in `SKILLS`, so a
-  renamed stage or an unregistered head fails instead of silently shipping nothing;
+- every `shared/<set>/*.md` stage is named in `STAGES`, every `STAGES` key is listed by some skill,
+  and every `heads/*.md` has a `SKILLS` entry — so a renamed stage, a stage no skill carries or an
+  unregistered head fails instead of silently shipping nothing. The directories scanned come from
+  `STAGES`, so a second `shared/<set>/` is covered without touching the check;
 - no `references/` folder survives and no `SKILL.md` cites one — `npm run build` deletes a leftover,
   `npm run check` reports it;
+- `scripts/*.sh` and `scripts/*.mjs` are mode `100755` **in the index** — the bit the README tells
+  people to rely on, invisible in a diff, and meaningless on a Windows clone's filesystem. Outside a
+  git work tree the check stays quiet rather than guessing;
 - and no generated body exceeds `MAX_LINES`.
 
 ## Traps

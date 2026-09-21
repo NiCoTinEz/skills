@@ -12,6 +12,7 @@
 // agent to read. Those reads were unconditional — 2 to 5 extra tool calls before any work, buying
 // nothing that loading the body up front doesn't.
 
+import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync, existsSync, readdirSync, statSync, rmSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -103,12 +104,23 @@ for (const skill of SKILLS) {
     setProblems.push(`missing folder: skills/${skill.name}/`);
   }
 }
-// The loops above only walk STAGES and SKILLS, so a source nothing points at is invisible to them:
+// The loops above only walk STAGES and SKILLS, so anything nothing points at is invisible to them:
 // rename a stage in STAGES and the old file silently stops shipping, add a head and forget the
-// SKILLS entry and the skill never exists. Both are dead weight in the repo, so fail on them.
-for (const file of readdirSync(join(ROOT, "shared/git-flow")).sort()) {
-  if (file.endsWith(".md") && !Object.values(STAGES).includes(`shared/git-flow/${file}`)) {
-    setProblems.push(`shared/git-flow/${file} is not named in STAGES — no skill ships it`);
+// SKILLS entry and the skill never exists, leave a STAGES key no skill lists and the stage ships
+// nowhere. All three are dead weight in the repo, so fail on them. The scanned directories come
+// from STAGES itself, so a second shared/<set>/ is covered without editing this.
+const stageSources = new Set(Object.values(STAGES));
+for (const dir of new Set([...stageSources].map((source) => dirname(source)))) {
+  for (const file of readdirSync(join(ROOT, dir)).sort()) {
+    if (file.endsWith(".md") && !stageSources.has(`${dir}/${file}`)) {
+      setProblems.push(`${dir}/${file} is not named in STAGES — no skill ships it`);
+    }
+  }
+}
+const stagesUsed = new Set(SKILLS.flatMap((skill) => skill.stages));
+for (const stage of Object.keys(STAGES)) {
+  if (!stagesUsed.has(stage)) {
+    setProblems.push(`stage ${stage} is named in STAGES but no skill lists it`);
   }
 }
 for (const file of readdirSync(join(ROOT, HEADS)).sort()) {
@@ -284,6 +296,27 @@ for (const name of onDisk) {
 }
 for (const name of listed) {
   if (!onDisk.includes(name)) problems.push(`plugin.json lists "./skills/${name}", which has no SKILL.md`);
+}
+
+// README and AGENTS.md document `./scripts/install.sh`, so its executable bit is part of the
+// contract — and a lost one is invisible in a diff. The index is the only source of truth: a
+// Windows clone's filesystem mode says nothing. No git, or no work tree (a downloaded tarball),
+// means the bit is unverifiable here rather than wrong, so that case stays quiet.
+try {
+  const tracked = execFileSync("git", ["ls-files", "-s", "--", "scripts"], {
+    cwd: ROOT,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "ignore"],
+  });
+  for (const line of tracked.split("\n").filter(Boolean)) {
+    const [meta, path] = line.split("\t");
+    const mode = meta.split(" ")[0];
+    if (/\.(?:sh|mjs)$/.test(path) && mode !== "100755") {
+      problems.push(`${path} is mode ${mode} in the index, not 100755 — git update-index --chmod=+x ${path}`);
+    }
+  }
+} catch {
+  // not a git work tree; nothing to compare against
 }
 
 const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8"));
