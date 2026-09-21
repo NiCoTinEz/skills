@@ -3,7 +3,7 @@ name: pr
 description: >
   Open a pull request for the commits already pushed on the current branch — no new branch, no
   commit, and no push. Use for "pr", "open a PR", "PR this branch".
-allowed-tools: Bash, PowerShell, Read, Glob, Grep
+allowed-tools: Bash, Read, Glob, Grep
 ---
 
 Run stages **0 → 4 → 5**, all of them below. **Skip stages 1, 2 and 3** — never create or switch

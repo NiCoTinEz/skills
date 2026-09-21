@@ -12,7 +12,8 @@ push      <remote>/feat/add-cache-retry
 pr        https://github.com/owner/repo/pull/42
 ```
 
-Omit `included` when nothing was pre-staged. A commit-only skill may keep `branch` as context.
+Omit `included` when nothing was pre-staged. A commit-only skill may keep `branch` as context, minus
+the `(from <base>)` suffix it never resolved.
 For several commits, use one `commit` line each, oldest first:
 
 ```

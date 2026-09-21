@@ -3,7 +3,7 @@ name: push-pr
 description: >
   Push the current branch and open a pull request from the commits already on it — no new branch and
   no new commit. Use for "push pr", "push and open a PR", "PR the commits I already made".
-allowed-tools: Bash, PowerShell, Read, Glob, Grep
+allowed-tools: Bash, Read, Glob, Grep
 ---
 
 Run stages **0 → 3 → 4 → 5**, all of them below. **Skip stages 1 and 2** — never create or switch

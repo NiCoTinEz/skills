@@ -231,11 +231,14 @@ for i in "${!target_names[@]}"; do
       if [ -L "$link" ] && [ -d "$link" ] && [ "$(cd "$link" && pwd -P)" = "$src" ]; then
         owned_link=1
       fi
-      owned_copy=0
+      # `owned_copy` is the function defined near the top; `is_own_copy` is this run's verdict for
+      # this entry. Keeping the two names distinct matters — one name doing both jobs is legal bash
+      # and reads like a bug.
+      is_own_copy=0
       if [ ! -L "$link" ] && owned_copy; then
-        owned_copy=1
+        is_own_copy=1
       fi
-      if [ "$owned_link" -eq 0 ] && [ "$owned_copy" -eq 0 ] && [ "$force" -eq 0 ]; then
+      if [ "$owned_link" -eq 0 ] && [ "$is_own_copy" -eq 0 ] && [ "$force" -eq 0 ]; then
         echo "kept $link: not installed by this script (use --force to delete anyway)" >&2
         skipped=$((skipped + 1))
         continue
@@ -299,5 +302,9 @@ if [ "$uninstall" -eq 1 ]; then
   echo "$done_count removed, $skipped untouched"
 else
   echo "$done_count installed, $skipped skipped"
-  [ "$done_count" -gt 0 ] && echo "Restart the agent (or start a new session) to pick the skills up."
+  # Not `[ ... ] && echo`: as the script's last command that exits 1 on an all-skipped run, which is
+  # what an idempotent re-install looks like. install.ps1 exits 0 there.
+  if [ "$done_count" -gt 0 ]; then
+    echo "Restart the agent (or start a new session) to pick the skills up."
+  fi
 fi

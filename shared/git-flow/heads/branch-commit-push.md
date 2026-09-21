@@ -4,7 +4,7 @@ description: >
   Create a type/short-slug branch, write a Conventional Commits commit, and push it with upstream
   tracking — no pull request. Use for "branch commit push", "push this on a new branch", "branch
   and push without a PR".
-allowed-tools: Bash, PowerShell, Read, Glob, Grep
+allowed-tools: Bash, Read, Glob, Grep
 ---
 
 Run stages **0 → 1 → 2 → 3 → 5**, all of them below. **Do not create a pull request** — stop after

@@ -2,7 +2,8 @@
 
 1. **Review content before staging or committing.** Batch reads into preflight when paths are known,
    otherwise one inspection call: `git diff --cached -- <path>` for pre-staged content and
-   `git diff -- <path>` for unstaged changes to include; read new untracked files directly.
+   `git diff -- <path>` for unstaged changes to include; read new untracked files directly, capping
+   an oversized one rather than pulling it in whole.
    Reuse content already inspected in this turn if unchanged. Apply the secret guardrail to both
    staged and unstaged content; stop on a prohibited pre-staged path, preserving the user's index.
    Safe pre-staged changes are included without another question — name them in the report.

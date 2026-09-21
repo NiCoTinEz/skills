@@ -3,7 +3,7 @@ name: commit-push-pr
 description: >
   Commit on the current branch, push it, and open a pull request — no new branch created. Use for
   "commit push pr", "PR this branch", "commit and raise a PR".
-allowed-tools: Bash, PowerShell, Read, Glob, Grep
+allowed-tools: Bash, Read, Glob, Grep
 ---
 
 Run stages **0 → 2 → 3 → 4 → 5**, all of them below. **Skip stage 1** — commit on the branch

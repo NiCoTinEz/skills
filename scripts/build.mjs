@@ -12,6 +12,7 @@
 // agent to read. Those reads were unconditional — 2 to 5 extra tool calls before any work, buying
 // nothing that loading the body up front doesn't.
 
+import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync, existsSync, readdirSync, statSync, rmSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -36,18 +37,21 @@ const STAGES = {
 const HEADS = "shared/git-flow/heads";
 
 // Membership here IS the ordered stage bodies each SKILL.md carries. The head's opening line names
-// the numbered stages; a stage-0 addition (`pr-preflight`) rides stage 0 and is listed here too.
+// the numbered stages. Both stage-0 additions (`remote`, then `pr-preflight`) sit before the
+// guardrails prose, so every line of stage 0's single call stays adjacent — split them and the
+// agent finds an "append it to stage 0's same call" block dozens of lines after the call it
+// appends to.
 const SKILLS = [
-  { name: "branch-commit-push-pr", stages: ["core", "remote", "guardrails", "pr-preflight", "branch", "commit", "push", "pr", "report"] },
+  { name: "branch-commit-push-pr", stages: ["core", "remote", "pr-preflight", "guardrails", "branch", "commit", "push", "pr", "report"] },
   { name: "branch-commit-push", stages: ["core", "remote", "guardrails", "branch", "commit", "push", "report"] },
   { name: "branch-commit", stages: ["core", "remote", "guardrails", "branch", "commit", "report"] },
-  { name: "commit-push-pr", stages: ["core", "remote", "guardrails", "pr-preflight", "commit", "push", "pr", "report"] },
+  { name: "commit-push-pr", stages: ["core", "remote", "pr-preflight", "guardrails", "commit", "push", "pr", "report"] },
   { name: "commit-push", stages: ["core", "remote", "guardrails", "commit", "push", "report"] },
   { name: "commit", stages: ["core", "guardrails", "commit", "report"] },
-  { name: "push-pr", stages: ["core", "remote", "guardrails", "pr-preflight", "push", "pr", "report"] },
+  { name: "push-pr", stages: ["core", "remote", "pr-preflight", "guardrails", "push", "pr", "report"] },
   { name: "branch", stages: ["core", "remote", "guardrails", "branch", "report"] },
   { name: "push", stages: ["core", "remote", "guardrails", "push", "report"] },
-  { name: "pr", stages: ["core", "remote", "guardrails", "pr-preflight", "pr", "report"] },
+  { name: "pr", stages: ["core", "remote", "pr-preflight", "guardrails", "pr", "report"] },
   // Its own procedure and report block, so no shared report stage.
   { name: "sync-base", stages: ["core", "remote", "guardrails", "sync-base"] },
 ];
@@ -98,6 +102,35 @@ for (const skill of SKILLS) {
   if (!isFile(head)) setProblems.push(`missing head: ${HEADS}/${skill.name}.md`);
   if (!statSync(join(ROOT, "skills", skill.name), { throwIfNoEntry: false })?.isDirectory()) {
     setProblems.push(`missing folder: skills/${skill.name}/`);
+  }
+}
+// The loops above only walk STAGES and SKILLS, so anything nothing points at is invisible to them:
+// rename a stage in STAGES and the old file silently stops shipping, add a head and forget the
+// SKILLS entry and the skill never exists, leave a STAGES key no skill lists and the stage ships
+// nowhere. All three are dead weight in the repo, so fail on them. Discover every shared/<set>/
+// from disk rather than from STAGES, or a completely unregistered set would escape this check.
+const stageSources = new Set(Object.values(STAGES));
+for (const set of readdirSync(join(ROOT, "shared"), { withFileTypes: true })
+  .filter((entry) => entry.isDirectory())
+  .sort((a, b) => a.name.localeCompare(b.name))) {
+  const dir = `shared/${set.name}`;
+  for (const file of readdirSync(join(ROOT, dir), { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
+    .sort((a, b) => a.name.localeCompare(b.name))) {
+    if (!stageSources.has(`${dir}/${file.name}`)) {
+      setProblems.push(`${dir}/${file.name} is not named in STAGES — no skill ships it`);
+    }
+  }
+}
+const stagesUsed = new Set(SKILLS.flatMap((skill) => skill.stages));
+for (const stage of Object.keys(STAGES)) {
+  if (!stagesUsed.has(stage)) {
+    setProblems.push(`stage ${stage} is named in STAGES but no skill lists it`);
+  }
+}
+for (const file of readdirSync(join(ROOT, HEADS)).sort()) {
+  if (file.endsWith(".md") && !seen.has(file.slice(0, -3))) {
+    setProblems.push(`${HEADS}/${file} has no SKILLS entry — it never becomes a skill`);
   }
 }
 if (setProblems.length) {
@@ -268,6 +301,27 @@ for (const name of onDisk) {
 }
 for (const name of listed) {
   if (!onDisk.includes(name)) problems.push(`plugin.json lists "./skills/${name}", which has no SKILL.md`);
+}
+
+// README and AGENTS.md document `./scripts/install.sh`, so its executable bit is part of the
+// contract — and a lost one is invisible in a diff. The index is the only source of truth: a
+// Windows clone's filesystem mode says nothing. No git, or no work tree (a downloaded tarball),
+// means the bit is unverifiable here rather than wrong, so that case stays quiet.
+try {
+  const tracked = execFileSync("git", ["ls-files", "-s", "--", "scripts"], {
+    cwd: ROOT,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "ignore"],
+  });
+  for (const line of tracked.split("\n").filter(Boolean)) {
+    const [meta, path] = line.split("\t");
+    const mode = meta.split(" ")[0];
+    if (/\.(?:sh|mjs)$/.test(path) && mode !== "100755") {
+      problems.push(`${path} is mode ${mode} in the index, not 100755 — git update-index --chmod=+x ${path}`);
+    }
+  }
+} catch {
+  // not a git work tree; nothing to compare against
 }
 
 const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8"));

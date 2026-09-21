@@ -3,7 +3,7 @@ name: commit-push
 description: >
   Commit on the current branch with a Conventional Commits message and push it — no new branch, no
   pull request. Use for "commit push", "commit and push", "push this up".
-allowed-tools: Bash, PowerShell, Read, Glob, Grep
+allowed-tools: Bash, Read, Glob, Grep
 ---
 
 Run stages **0 → 2 → 3 → 5**, all of them below. **Skip stage 1** (never create or switch branches)
