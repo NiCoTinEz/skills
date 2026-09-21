@@ -48,6 +48,7 @@ commit skill. Read out of that one answer:
 | Fact | From |
 |---|---|
 | repo root, current branch | lines 1 and 3 |
+| `<branch>` | line 3; replace it with the branch created or reused by stage 1 |
 | dirty / staged | porcelain lines other than the `##` header; staged = first column not space or `?` |
 | what changed | the two `--stat` lines — enough to name a branch and write a message |
 
@@ -61,12 +62,12 @@ form exists, both variants are given.
 ## Stage 0 — the remote half
 
 These lines belong in the **same call** as the six above; this skill reaches a remote, so it needs
-`<remote>` and `<base>` before any later stage runs.
+`<remote>` and `<base>` before any later stage runs. Use a user-specified remote instead of `origin`.
 
 ```bash
 git remote get-url origin | sed -E 's#(://)[^@/]+@#\1#'
 git symbolic-ref --quiet refs/remotes/origin/HEAD
-git fetch origin --quiet
+git fetch origin --no-prune --quiet
 grep -nisE "base branch|pull request.*(target|into|against)" CLAUDE.md AGENTS.md CONTRIBUTING.md
 ```
 
@@ -79,34 +80,38 @@ Select-String -Path CLAUDE.md,AGENTS.md,CONTRIBUTING.md -Pattern "base branch","
 
 That strips any user-info from the URL, so what prints is safe to keep and to report. **Never print
 `git remote -v`** — it shows every URL unredacted, passwords and PATs included. `grep -s` matters:
-without it, the three convention files not existing is three warning lines in most repos. This fetch
-serves the branch, commit, push and pull request stages — none of them fetches again. What the extra
-lines give you:
+without it, absent convention files print warnings. This fetch refreshes refs for the later stages;
+the standalone `commit` skill omits this remote half. `--no-prune` overrides automatic pruning in
+Git configuration: preflight must never delete refs. What the extra lines give you:
 
 | Fact | From |
 |---|---|
 | platform, `<remote>` | the redacted URL: `github.com` → GitHub + `gh`; `dev.azure.com`, `.visualstudio.com`, `ssh.dev.azure.com` → Azure DevOps + `az repos`; neither → unknown, so no automated pull request, though `<remote>` still stands |
 | `<base>` | the convention grep wins outright; otherwise `refs/remotes/origin/HEAD` minus its prefix |
 
-**`<remote>` is `origin` unless `origin` is missing.** If it is, list names only with `git remote`
+**An explicit remote wins; otherwise use `origin` if present.** If it is missing, list names with `git remote`
 and capture one redacted URL each: a single remote wins, otherwise the one GitHub or Azure DevOps
-remote, saying why. No remote at all stops any stage needing one. Substitute the resolved name into
-every later command — never hardcode `origin` past this point.
+remote, saying why. No remote, or several still ambiguous, stops remote work and reports the choices.
+After resolving a missing remote, batch its redacted URL, HEAD and non-pruning fetch before continuing.
+Substitute the resolved name into every later command — never hardcode `origin` past this point.
 
 **`<base>` is never guessed from a hardcoded list.** A convention in `CLAUDE.md`, `AGENTS.md` or
 `CONTRIBUTING.md` outranks the platform default. If neither the grep nor
-`refs/remotes/<remote>/HEAD` answers, ask the platform once — `gh repo view --json defaultBranchRef --jq .defaultBranchRef.name`,
+`refs/remotes/<remote>/HEAD` answers, ask the platform once — `gh repo view "<host>/<owner>/<repo>" --json defaultBranchRef --jq .defaultBranchRef.name`,
 or for Azure DevOps, one line, stripping `refs/heads/` from the answer:
 
 ```bash
 az repos show --organization "https://dev.azure.com/<org>" --project "<project>" --repository "<repo>" --query defaultBranch -o tsv
 ```
 
-Cache it with `git remote set-head <remote> <branch>` so later runs skip the call. Only if all that
+Use the repository identified by the resolved remote, including in folder mode. Cache the answer with
+`git remote set-head "<remote>" "<base>"` once that tracking ref exists. Only if all that
 fails, take whichever of `<remote>/main`, `<remote>/master`, `<remote>/development`,
 `<remote>/develop` exists — and if two candidates remain plausible, take the one this ladder ranks
-higher and say which and why rather than asking. Branch names are case-sensitive, may contain `/`
-and are never re-cased: quote them. Every later stage uses `<base>`, never a literal branch name.
+higher and say which and why rather than asking. No candidate means stop and request the base.
+Batch needed fallback probes across repositories; never switch using an unresolved base or remote.
+Branch names are case-sensitive and may contain `/`: quote them without changing case.
+Every later stage uses `<base>`, never a literal branch name.
 
 ## Hard guardrails
 
@@ -117,10 +122,11 @@ Refuse and explain rather than working around any of these:
 - **No `--force`, no `--force-with-lease`, no `--no-verify`**, and no push to a protected or default
   branch unless the user asks for it in this turn.
 - **No amend, no rebase, no reset** of existing commits. New commits only.
-- **No `git add .` and no `git add -A`.** Stage named paths from the porcelain listing. Never stage
+- **No `git add .` and no `git add -A`.** Stage named paths from the porcelain listing. Never stage or commit
   `.env*`, `*.pem`, `*.key`, `*.pfx`, `id_rsa*`, `*.p12`, `secrets.*`,
   `appsettings.*.local.json`, `*.publishsettings`, a credential or token file, or anything whose
-  diff carries an obvious live secret — flag it and leave it unstaged.
+  diff carries an obvious live secret. Check staged content too. If already staged, stop and name
+  the paths without exposing secrets or changing the user's index; otherwise leave it unstaged.
 - **Merge, rebase, cherry-pick, revert, bisect or sequencer operation in progress, or detached
   HEAD** — stop, report the state, let the user resolve it.
 
@@ -133,10 +139,14 @@ flow.
 
 ## Stage 2 — Commit
 
-1. **Stage deliberately** — everything belonging to this one logical change, nothing else.
-   Preflight already printed both stats; where they don't say enough for the message body, read the
-   single path with `git diff -- <path>` rather than the whole tree. Anything **already staged**
-   before you started is included rather than queried — name it in the report.
+1. **Review content before staging or committing.** Batch reads into preflight when paths are known,
+   otherwise one inspection call: `git diff --cached -- <path>` for pre-staged content and
+   `git diff -- <path>` for unstaged changes to include; read new untracked files directly.
+   Reuse content already inspected in this turn if unchanged. Apply the secret guardrail to both
+   staged and unstaged content; stop on a prohibited pre-staged path, preserving the user's index.
+   Safe pre-staged changes are included without another question — name them in the report.
+   Stage only reviewed changes belonging to this logical commit. A partially staged file keeps its
+   reviewed index version unless its remaining changes belong too; `git add <path>` includes both.
 
 2. **Conventional Commits:**
 
@@ -146,13 +156,11 @@ flow.
 - <why, or non-obvious detail>
 ```
 
-   `<scope>` is optional — use the project or module name when the repo already does. Imperative
-   mood: `add`, `fix`, `remove`, not `added` or `adds`. Subject 50 chars preferred, hard cap 72, no
-   trailing period. A body only when the *why* isn't obvious from the diff, or for breaking changes
-   and migration notes; wrap at 72, bullets with `-`. Breaking change: `feat(api)!: …` plus a
-   `BREAKING CHANGE: …` footer. **No AI attribution and no `Co-Authored-By` trailer.** No "this
-   commit", no "I" or "we", and don't restate filenames the scope already covers. If preflight's
-   `git log` shows the repo using a different convention, follow the repo and mention the deviation.
+   Optional scope; imperative subject, preferably 50 chars, at most 72, no trailing period.
+   Use a body for non-obvious reasons, breaking changes or migration notes; wrap at 72.
+   Breaking change: `feat(api)!: …` and a `BREAKING CHANGE: …` footer. **No AI attribution or
+   `Co-Authored-By` trailer.** Follow an established different repo convention and report it.
+   No "this commit", "I" / "we", or redundant filenames; use `-` bullets in the body.
 
 3. **One call per commit.** The message goes to a file passed with `-F`: a multi-line `-m` is
    mangled differently by every shell.
@@ -187,22 +195,15 @@ git diff --staged --stat
 git rev-parse --short HEAD
 ```
 
-   The message file sits inside the git directory, so it can never be picked up as a repo change.
-   `--quiet` drops the per-file summary; the last two lines are what the report needs, and an empty
-   stat confirms nothing was left staged by mistake. A hook rejecting the commit is a real problem —
-   fix it or report it, never `--no-verify`.
+   Omit `git add` for content already staged. The message file stays inside the git directory.
+   Check the commit's own result before interpreting the final stats or HEAD as success.
+   A hook rejection stops the flow: fix or report it, never `--no-verify`.
 
-4. **Several unrelated logical changes means several commits** — one call each, and default to
-   splitting: one commit per logical change, not one per invocation. Group by *change*, not by file;
-   a file touched for two unrelated reasons belongs to two groups, staged by path, and if it can't
-   be split by path, say so and keep it in the group it mostly serves. The test for one group: it
-   reads as a single changelog line, and could be reverted on its own without taking unrelated work
-   with it. **Every commit must stand alone** — order the groups so each leaves the tree working and
-   passes any verification gate the repo has, not just the last one. Two changes that only work
-   together are *one* logical change however different they look: a new module plus the manifest
-   entry registering it can't be split, because the commit registering a file that doesn't exist yet
-   is broken. Ambiguous grouping is not a question for the user — take the defensible split and say
-   what you chose.
+4. **Split unrelated logical changes**, one call per commit. Each should be independently
+   revertible and pass the repo's verification gate. Changes that only work together stay together.
+   Group by change, not filename; if a file cannot be split by path, explain its chosen group.
+   Pre-staged unrelated changes need deliberate index regrouping before separate commits; never
+   claim a split while committing the entire original index into the first group.
 
 ## Stage 3 — Push
 
@@ -234,31 +235,33 @@ git rev-list --left-right --count "<remote>/<branch>...HEAD"
 - On the default or a protected branch — possible for any skill that skips stage 1 — warn plainly
   that this goes straight to `<base>`, and get explicit confirmation before pushing.
 
-## Stage 4 — Pull request
+## Stage 0 addition — CLI preflight
 
-### CLI preflight
+Append the platform's block to stage 0's **same call**, before any branch, commit or push.
+GitHub — this checks both installation and authentication:
 
-`gh auth status` rides in stage 0's call and answers both questions at once: a missing `gh` fails
-it, and so does an unauthenticated one. Azure DevOps needs its own scoped pair there instead, whose
-unscoped forms print 22 and 33 lines against one each:
+```bash
+gh auth status
+```
+
+Azure DevOps — check installation and extension; authentication is checked by the first repo API call:
 
 ```bash
 az version -o tsv
 az extension show --name azure-devops --query name -o tsv
 ```
 
-**Never install a CLI or an extension yourself.** Stop, give the exact command, wait for the user:
+**A failed check stops later stages. Never install a CLI or extension yourself.** Give the command:
 `brew install gh` or `winget install --id GitHub.cli`; `gh auth login`;
 `winget install --id Microsoft.AzureCLI`; `az extension add --name azure-devops`; `az login`, or a
 PAT with `Code (read & write)` plus `Pull Request contribute` scope in `AZURE_DEVOPS_EXT_PAT`
-(`TF400813`, a `401` or a prompt all mean auth). Stages already completed stay completed — say where
-the flow stopped and what remains.
+(`TF400813`, a `401` or a prompt all mean auth). Wait for the user to resolve it, then recheck.
+
+## Stage 4 — Pull request
 
 ### Call one — parity and duplicates
 
-The platform opens the pull request from what the *remote* holds, so a skill that skips stage 3
-(`pr`) confirms the branch is there and that HEAD is not ahead of it — and must not push to make it
-possible.
+A skill skipping stage 3 (`pr`) verifies source parity; it must never push to establish parity.
 
 ```bash
 git rev-parse --verify --quiet "<remote>/<branch>"
@@ -267,30 +270,25 @@ git rev-list --count "<remote>/<base>..HEAD"
 gh pr list --head "<branch>" --base "<base>" --state open --json url --jq '.[0].url'
 ```
 
-- An empty first line means no `<remote>/<branch>` ref, so the branch was never pushed: stop, say
-  so, offer `push-pr`. The count line then reports `ambiguous argument` — that is the same answer,
-  not a second problem. Counts other than `0 0` mean local and remote differ, so the pull request
-  would describe a different commit set from the one under review; stop there too, saying whether
-  local is ahead, behind or diverged. A skill that just ran stage 3 satisfies both by construction
-  and drops those two lines.
-- `0` from the third line is **nothing to ship**: no commits separate the branch from the refreshed
-  base, and both platforms reject an empty pull request anyway. Stop and report.
-- A URL back from `gh pr list` means one already exists — report it and create nothing; no output
-  means none does. Azure DevOps replaces that line with, on one line:
+- Missing tracking ref or counts other than `0 0`: stop and report missing, ahead, behind or
+  diverged. Offer `push-pr` for a missing branch or unpushed commits. After a successful stage 3,
+  omit those first two lines. A failed push never advances to stage 4.
+- `0` from the third line means **nothing to ship**: stop and report.
+- An existing PR URL means report it and create nothing. Only successful empty output means none;
+  API errors stop. Azure DevOps replaces the list command with:
 
 ```bash
 az repos pr list --organization "https://dev.azure.com/<org>" --project "<project>" --repository "<repo>" --source-branch "<branch>" --target-branch "<base>" --status active --query "[].pullRequestId" -o tsv
 ```
 
-  One ID means it exists — report its URL, composed as below. Several: report them and ask rather
-  than choosing silently. Empty: none exists, carry on.
-- Title is the commit subject, keeping its `<type>(<scope>):` prefix unless the repo's own pull
-  request convention drops it. Several commits get one summarising title.
+  One ID: report its URL; several: report and ask; successful empty output: continue.
+- Title: commit subject with its Conventional Commits prefix unless repo convention differs;
+  summarise several commits in one title.
 
 ### Call two — body and create
 
-Nothing above wrote a file, so a stop costs no cleanup. The body is written here, used, and removed
-in the one call — including when the create fails:
+Write, use and remove the body in one call, including after failure. Check creation's result,
+not cleanup's exit status, before reporting success. Bash:
 
 ```bash
 cat > "$(git rev-parse --git-dir)/PR_BODY_TMP.md" <<'EOF'
@@ -300,8 +298,25 @@ cat > "$(git rev-parse --git-dir)/PR_BODY_TMP.md" <<'EOF'
 ## Test plan
 - <how it was verified, or "not run: reason">
 EOF
-gh pr create --base <base> --head <branch> --title "<title>" --body-file "$(git rev-parse --git-dir)/PR_BODY_TMP.md"
+gh pr create --base "<base>" --head "<branch>" --title "<title>" --body-file "$(git rev-parse --git-dir)/PR_BODY_TMP.md"
 rm -f "$(git rev-parse --git-dir)/PR_BODY_TMP.md"
+```
+
+PowerShell — the closing `'@` starts at column 0:
+
+```powershell
+$prBody = @'
+## Summary
+- <what changed and why>
+
+## Test plan
+- <how verified, or not run: reason>
+'@
+$prBodyFile = Join-Path (git rev-parse --git-dir) PR_BODY_TMP.md
+try {
+  Set-Content -LiteralPath $prBodyFile -Value $prBody -Encoding utf8
+  gh pr create --base "<base>" --head "<branch>" --title "<title>" --body-file $prBodyFile
+} finally { Remove-Item -LiteralPath $prBodyFile -ErrorAction SilentlyContinue }
 ```
 
 Opt-in flags, only when the user asks: `--draft`, `--reviewer <user>`, `--assignee @me`,
@@ -309,12 +324,10 @@ Opt-in flags, only when the user asks: `--draft`, `--reviewer <user>`, `--assign
 
 ### Azure DevOps
 
-Parse org, project and repo out of the redacted `<remote>` URL: the three path segments around
-`_git` in `https://dev.azure.com/<org>/<project>/_git/<repo>` and in the
-`<org>.visualstudio.com/<project>/_git/<repo>` form, or after `v3` in the SSH form
-`git@ssh.dev.azure.com:v3/<org>/<project>/<repo>`. Strip a trailing `.git`, URL-decode `%20` in
-project names, and if the parse looks wrong confirm with
-`az repos list --organization <org> --project <project> --query "[].name" -o tsv`.
+Parse org/project/repo from the resolved remote: `dev.azure.com/<org>/<project>/_git/<repo>`,
+`<org>.visualstudio.com/<project>/_git/<repo>`, or SSH `v3/<org>/<project>/<repo>`.
+Strip trailing `.git` and URL-decode project names. Confirm an unclear parse with
+`az repos list --organization "https://dev.azure.com/<org>" --project "<project>" --query "[].name" -o tsv`.
 
 **Ask two things before building the command — every Azure DevOps pull request, no exceptions,**
 unless the user's invocation already answered them (an explicit `--auto-complete` / `--work-items`
@@ -331,12 +344,8 @@ argument this turn skips its ask). Neither has a GitHub equivalent, so this sect
 az repos pr create --organization "https://dev.azure.com/<org>" --project "<project>" --repository "<repo>" --source-branch "<branch>" --target-branch "<base>" --title "<title>" --description "## Summary" "- first point" "" "## Test plan" "- how it was checked" --query "{id:pullRequestId,repo:repository.webUrl}" -o tsv
 ```
 
-- **`--description` takes one argument per line** — not a file, and not one string containing a
-  newline escape, which renders literally. Pass an empty string for a blank line; Markdown is
-  allowed. That is why Azure DevOps skips the body file.
-- The URL to report is the repository web URL, then `pullrequest`, then the pull request ID — the
-  two tab-separated values `--query` returns, in that order. That scoped query is deliberate:
-  default JSON returns the whole pull request object, 253 lines against 1.
+- `--description` takes one argument per line; an empty string adds a blank line. No body file.
+- Report URL: repository web URL + `/pullrequest/` + ID, using the two returned TSV values.
 - Opt-in flags, only when the user asks: `--draft true`, `--squash true`, `--reviewers <email…>`.
 
 ## Stage 5 — Report
@@ -348,12 +357,13 @@ was skipped or failed keeps its line and carries the reason.
 platform  GitHub | Azure DevOps
 branch    feat/add-cache-retry  (from main)
 commit    a1b2c3d  feat(cache): add retry on transient Redis failure
+included  already staged: src/Cache.cs
 push      <remote>/feat/add-cache-retry
 pr        https://github.com/owner/repo/pull/42
 ```
 
-A commit-only skill may keep the `branch` line as context, naming where the commit landed. Stage 2
-split the work into several commits, so one `commit` line each, oldest first:
+Omit `included` when nothing was pre-staged. A commit-only skill may keep `branch` as context.
+For several commits, use one `commit` line each, oldest first:
 
 ```
 branch    fix/tidy-cache-layer  (from main)
