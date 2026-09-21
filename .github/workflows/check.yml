@@ -1,0 +1,17 @@
+name: check
+
+# The gate in AGENTS.md only holds if something runs it. `npm run check` needs node and nothing
+# else — no install step, no dependencies — so this is the whole job.
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm run check
