@@ -4,7 +4,7 @@ description: >
   Create a type/short-slug branch and switch to it — nothing else. No commit, no push, no pull
   request; the working tree is left exactly as it was. Use for "branch", "make a branch", "new
   branch for this".
-allowed-tools: Bash, PowerShell, Read, Glob, Grep
+allowed-tools: Bash, Read, Glob, Grep
 ---
 
 Run stages **0 → 1 → 5**, all of them below. **Skip stages 2, 3 and 4** — never commit, never push,

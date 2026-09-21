@@ -1,11 +1,14 @@
 {
   "name": "nicotinez-skills",
-  "version": "0.5.4",
+  "version": "0.5.5",
   "private": true,
   "description": "Agent skills for Claude Code, Codex CLI, OpenCode and any other SKILL.md consumer. Not an npm package — install with `npx skills add NiCoTinEz/skills`.",
   "scripts": {
     "build": "node scripts/build.mjs",
     "check": "node scripts/build.mjs --check"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  }
 }

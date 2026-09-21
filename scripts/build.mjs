@@ -36,18 +36,21 @@ const STAGES = {
 const HEADS = "shared/git-flow/heads";
 
 // Membership here IS the ordered stage bodies each SKILL.md carries. The head's opening line names
-// the numbered stages; a stage-0 addition (`pr-preflight`) rides stage 0 and is listed here too.
+// the numbered stages. Both stage-0 additions (`remote`, then `pr-preflight`) sit before the
+// guardrails prose, so every line of stage 0's single call stays adjacent — split them and the
+// agent finds an "append it to stage 0's same call" block dozens of lines after the call it
+// appends to.
 const SKILLS = [
-  { name: "branch-commit-push-pr", stages: ["core", "remote", "guardrails", "pr-preflight", "branch", "commit", "push", "pr", "report"] },
+  { name: "branch-commit-push-pr", stages: ["core", "remote", "pr-preflight", "guardrails", "branch", "commit", "push", "pr", "report"] },
   { name: "branch-commit-push", stages: ["core", "remote", "guardrails", "branch", "commit", "push", "report"] },
   { name: "branch-commit", stages: ["core", "remote", "guardrails", "branch", "commit", "report"] },
-  { name: "commit-push-pr", stages: ["core", "remote", "guardrails", "pr-preflight", "commit", "push", "pr", "report"] },
+  { name: "commit-push-pr", stages: ["core", "remote", "pr-preflight", "guardrails", "commit", "push", "pr", "report"] },
   { name: "commit-push", stages: ["core", "remote", "guardrails", "commit", "push", "report"] },
   { name: "commit", stages: ["core", "guardrails", "commit", "report"] },
-  { name: "push-pr", stages: ["core", "remote", "guardrails", "pr-preflight", "push", "pr", "report"] },
+  { name: "push-pr", stages: ["core", "remote", "pr-preflight", "guardrails", "push", "pr", "report"] },
   { name: "branch", stages: ["core", "remote", "guardrails", "branch", "report"] },
   { name: "push", stages: ["core", "remote", "guardrails", "push", "report"] },
-  { name: "pr", stages: ["core", "remote", "guardrails", "pr-preflight", "pr", "report"] },
+  { name: "pr", stages: ["core", "remote", "pr-preflight", "guardrails", "pr", "report"] },
   // Its own procedure and report block, so no shared report stage.
   { name: "sync-base", stages: ["core", "remote", "guardrails", "sync-base"] },
 ];
@@ -98,6 +101,19 @@ for (const skill of SKILLS) {
   if (!isFile(head)) setProblems.push(`missing head: ${HEADS}/${skill.name}.md`);
   if (!statSync(join(ROOT, "skills", skill.name), { throwIfNoEntry: false })?.isDirectory()) {
     setProblems.push(`missing folder: skills/${skill.name}/`);
+  }
+}
+// The loops above only walk STAGES and SKILLS, so a source nothing points at is invisible to them:
+// rename a stage in STAGES and the old file silently stops shipping, add a head and forget the
+// SKILLS entry and the skill never exists. Both are dead weight in the repo, so fail on them.
+for (const file of readdirSync(join(ROOT, "shared/git-flow")).sort()) {
+  if (file.endsWith(".md") && !Object.values(STAGES).includes(`shared/git-flow/${file}`)) {
+    setProblems.push(`shared/git-flow/${file} is not named in STAGES — no skill ships it`);
+  }
+}
+for (const file of readdirSync(join(ROOT, HEADS)).sort()) {
+  if (file.endsWith(".md") && !seen.has(file.slice(0, -3))) {
+    setProblems.push(`${HEADS}/${file} has no SKILLS entry — it never becomes a skill`);
   }
 }
 if (setProblems.length) {

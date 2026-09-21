@@ -26,7 +26,8 @@ commit skill. Read out of that one answer:
 | repo root, current branch | lines 1 and 3 |
 | `<branch>` | line 3; the branch created or reused by stage 1, or the current branch when no stage 1 runs |
 | dirty / staged | porcelain lines other than the `##` header; staged = first column not space or `?` |
-| what changed | the two `--stat` lines — enough to name a branch and write a message |
+| what changed | the two `--stat` lines — enough to name a branch and write a message. A tree big enough
+  that they flood the answer falls back to `git diff --shortstat` plus the porcelain paths |
 
 **Command discipline.** Keep output scoped — `--stat`, `--quiet`, `--porcelain`,
 `--query … -o tsv` — and never run a command whose full output you won't read. Every line must run

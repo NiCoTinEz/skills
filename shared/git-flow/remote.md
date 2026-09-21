@@ -7,14 +7,16 @@ These lines belong in the **same call** as the six above; this skill reaches a r
 git remote get-url origin | sed -E 's#(://)[^@/]+@#\1#'
 git symbolic-ref --quiet refs/remotes/origin/HEAD
 git fetch origin --no-prune --quiet
-grep -nisE "base branch|pull request.*(target|into|against)" CLAUDE.md AGENTS.md CONTRIBUTING.md
+repo_root="$(git rev-parse --show-toplevel)"
+grep -nisE "base branch|pull request.*(target|into|against)" "$repo_root/CLAUDE.md" "$repo_root/AGENTS.md" "$repo_root/CONTRIBUTING.md"
 ```
 
 PowerShell, for the two lines with no portable form:
 
 ```powershell
 (git remote get-url origin) -replace '://[^@/]+@','://'
-Select-String -Path CLAUDE.md,AGENTS.md,CONTRIBUTING.md -Pattern "base branch","pull request.*(target|into|against)" -ErrorAction SilentlyContinue
+$repo_root = (git rev-parse --show-toplevel)
+Select-String -Path "$repo_root\CLAUDE.md","$repo_root\AGENTS.md","$repo_root\CONTRIBUTING.md" -Pattern "base branch","pull request.*(target|into|against)" -ErrorAction SilentlyContinue
 ```
 
 That strips any user-info from the URL, so what prints is safe to keep and to report. **Never print

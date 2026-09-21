@@ -6,7 +6,7 @@ description: >
   stale remote-tracking refs and reporting which local branches are now merged. In a folder that is
   not a repo but holds repos, it asks which of them to sync. A dirty tree stops it. Use for "sync
   base", "back to base", "go back to main and pull".
-allowed-tools: Bash, PowerShell, Read, Glob, Grep
+allowed-tools: Bash, Read, Glob, Grep
 ---
 
 Run stage **0**, then the procedure below, then stage **5**. **Do not run

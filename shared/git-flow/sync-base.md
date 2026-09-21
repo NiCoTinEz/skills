@@ -69,8 +69,9 @@ remote/base fallback probes across all unresolved repos before landing; the four
 not a reason to guess. Ask the prune question **once**, after all eligible repos have a preview.
 
 Probe every selected repo with **the full stage 0**, including its remote half and the two preview
-lines above. Prefix every Git command with `git -C "<dir>"`; prefix convention-file paths with
-`<dir>/` in the grep or PowerShell `Select-String`. Do not repeat folder detection or CLI checks.
+lines above. Prefix every Git command with `git -C "<dir>"`; convention files are read from each
+repo's own root, so `repo_root` comes from `git -C "<dir>" rev-parse --show-toplevel` before the
+grep or PowerShell `Select-String` runs. Do not repeat folder detection or CLI checks.
 Use a supplied remote, otherwise initially probe `origin`, then apply the shared remote resolver.
 The additional preview lines for each resolved repo are:
 

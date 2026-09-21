@@ -4,7 +4,7 @@ description: >
   Full ship flow: create a type/short-slug branch, write a Conventional Commits commit, push with
   upstream, and open a pull request. Use for "branch commit push pr", "ship this", "make a branch
   and PR".
-allowed-tools: Bash, PowerShell, Read, Glob, Grep
+allowed-tools: Bash, Read, Glob, Grep
 ---
 
 Run stages **0 → 1 → 2 → 3 → 4 → 5** — the whole procedure, all of it below. Roughly six tool

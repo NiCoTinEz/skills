@@ -4,7 +4,7 @@ description: >
   Commit the current work on the branch already checked out, with a Conventional Commits message —
   no new branch, no push, no pull request. Use for "commit", "commit only", "commit without
   pushing".
-allowed-tools: Bash, PowerShell, Read, Glob, Grep
+allowed-tools: Bash, Read, Glob, Grep
 ---
 
 Run stages **0 → 2 → 5**, all of them below. **Skip stages 1, 3 and 4** — never create or switch

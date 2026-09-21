@@ -5,7 +5,7 @@ Refuse and explain rather than working around any of these:
 - **Nothing to commit** — a skill running stage 2 stops on a clean tree. For a skill that doesn't
   commit, a clean tree is normal; its own equivalent is the nothing-to-ship stop, in stage 3 or 4.
 - **No `--force`, no `--force-with-lease`, no `--no-verify`**, and no push to a protected or default
-  branch unless the user asks for it in this turn.
+  branch unless the user asked for it when invoking, or confirms after the stage-3 warning.
 - **No amend, no rebase, no reset** of existing commits. New commits only.
 - **No `git add .` and no `git add -A`.** Stage named paths from the porcelain listing. Never stage or commit
   `.env*`, `*.pem`, `*.key`, `*.pfx`, `id_rsa*`, `*.p12`, `secrets.*`,
