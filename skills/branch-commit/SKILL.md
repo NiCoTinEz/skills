@@ -42,7 +42,7 @@ commit skill. Read out of that one answer:
 | Fact | From |
 |---|---|
 | repo root, current branch | lines 1 and 3 |
-| `<branch>` | line 3; replace it with the branch created or reused by stage 1 |
+| `<branch>` | line 3; the branch created or reused by stage 1, or the current branch when no stage 1 runs |
 | dirty / staged | porcelain lines other than the `##` header; staged = first column not space or `?` |
 | what changed | the two `--stat` lines — enough to name a branch and write a message |
 
@@ -81,7 +81,7 @@ Git configuration: preflight must never delete refs. What the extra lines give y
 | Fact | From |
 |---|---|
 | platform, `<remote>` | the redacted URL: `github.com` → GitHub + `gh`; `dev.azure.com`, `.visualstudio.com`, `ssh.dev.azure.com` → Azure DevOps + `az repos`; neither → unknown, so no automated pull request, though `<remote>` still stands |
-| `<base>` | the convention grep wins outright; otherwise `refs/remotes/origin/HEAD` minus its prefix |
+| `<base>` | the convention grep wins outright; otherwise `refs/remotes/<remote>/HEAD` minus its prefix |
 
 **An explicit remote wins; otherwise use `origin` if present.** If it is missing, list names with `git remote`
 and capture one redacted URL each: a single remote wins, otherwise the one GitHub or Azure DevOps
@@ -112,7 +112,7 @@ Every later stage uses `<base>`, never a literal branch name.
 Refuse and explain rather than working around any of these:
 
 - **Nothing to commit** — a skill running stage 2 stops on a clean tree. For a skill that doesn't
-  commit, a clean tree is normal; its equivalent is *nothing to ship*, in stage 4.
+  commit, a clean tree is normal; its own equivalent is the nothing-to-ship stop, in stage 3 or 4.
 - **No `--force`, no `--force-with-lease`, no `--no-verify`**, and no push to a protected or default
   branch unless the user asks for it in this turn.
 - **No amend, no rebase, no reset** of existing commits. New commits only.
@@ -212,7 +212,7 @@ feat(cache): add retry on transient Redis failure
 - transient socket errors were surfacing as 500s
 '@
 $f = Join-Path (git rev-parse --git-dir) COMMIT_MSG_TMP
-Set-Content -Path $f -Value $msg -Encoding utf8
+[IO.File]::WriteAllText($f, $msg, [Text.UTF8Encoding]::new($false))
 git commit --quiet -F $f
 Remove-Item $f
 git diff --staged --stat
@@ -238,7 +238,7 @@ was skipped or failed keeps its line and carries the reason.
 platform  GitHub | Azure DevOps
 branch    feat/add-cache-retry  (from main)
 commit    a1b2c3d  feat(cache): add retry on transient Redis failure
-included  already staged: src/Cache.cs
+included  already staged: src/example.cs
 push      <remote>/feat/add-cache-retry
 pr        https://github.com/owner/repo/pull/42
 ```

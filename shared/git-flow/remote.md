@@ -26,7 +26,7 @@ Git configuration: preflight must never delete refs. What the extra lines give y
 | Fact | From |
 |---|---|
 | platform, `<remote>` | the redacted URL: `github.com` → GitHub + `gh`; `dev.azure.com`, `.visualstudio.com`, `ssh.dev.azure.com` → Azure DevOps + `az repos`; neither → unknown, so no automated pull request, though `<remote>` still stands |
-| `<base>` | the convention grep wins outright; otherwise `refs/remotes/origin/HEAD` minus its prefix |
+| `<base>` | the convention grep wins outright; otherwise `refs/remotes/<remote>/HEAD` minus its prefix |
 
 **An explicit remote wins; otherwise use `origin` if present.** If it is missing, list names with `git remote`
 and capture one redacted URL each: a single remote wins, otherwise the one GitHub or Azure DevOps

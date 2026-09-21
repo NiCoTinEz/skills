@@ -47,8 +47,9 @@ Stage 0 failed on every git line and the detection line listed `.git` entries: t
 repos, so there is no single base to land on. **Ask what to do, and touch nothing until the answer
 arrives:**
 
-- **Sync all** — say how many, because "all" means that many fetches. Past roughly twenty, say so
-  plainly and offer narrowing instead; still do it if the user says all anyway.
+- **Sync all** — say how many, because "all" means up to twice that many fetches: one probe each, plus
+  one more each if pruning is approved. Past roughly twenty, say so plainly and offer narrowing
+  instead; still do it if the user says all anyway.
 - **Select some** — list the repo names in the order detection printed them, and take the ones named.
 - **Nothing** — stop, saying the folder itself is not a repo, so no base was touched.
 
@@ -93,6 +94,7 @@ Then pull only repos whose landing commands succeeded and whose current branch i
 ```bash
 git -C "<dir>" pull --ff-only --no-prune "<remote>" "<base>"
 git -C "<dir>" log --oneline -1
+git -C "<dir>" rev-list --left-right --count "<remote>/<base>...HEAD"
 git -C "<dir>" branch --merged "<base>"
 ```
 
@@ -104,11 +106,12 @@ branch. A failed pull is reported as failed; do not describe its merged-branch l
 Apply preflight's dirty-tree and other guardrails **before asking about pruning**. Anything
 modified, staged or untracked makes that repo ineligible: name the paths and skip pruning,
 switching and pulling. In a single repo, stop; in folder mode, continue only with eligible repos.
-If none remain, report `prune skipped: <reason>` and stop without the prune question.
+If none remain, stop without the prune question, reporting the `prune` line as `skipped: <reason>`
+(Stage 5 gives its exact shape).
 
 ```
-dirty     src/Cache.cs, README.md
-prune     skipped: dirty tree
+dirty     src/example.cs, README.md
+prune     <remote>  skipped: dirty tree
 ```
 
 Offer `commit` or `branch-commit` for dirty work. Stash only if the user asks in that turn; explain
@@ -157,6 +160,7 @@ Continue only if landing succeeded and the reported branch is `<base>`. Then:
 ```bash
 git pull --ff-only --no-prune "<remote>" "<base>"
 git log --oneline -1
+git rev-list --left-right --count "<remote>/<base>...HEAD"
 git branch --merged "<base>"
 ```
 
@@ -175,8 +179,9 @@ would move without complaint. The two `HEAD` readings also give the report its r
   that fails, `git switch --track <remote>/<base>`.
 - **`--ff-only` is deliberate.** A non-fast-forward refusal means the local and remote histories
   have diverged: stop, never rebase, reset, force or merge past it. A local-only lead succeeds and
-  stays intact; report local commits still ahead if known, without claiming local/remote parity.
-  For other pull failures, report the actual error instead of diagnosing divergence.
+  stays intact; the `rev-list` count names the local commits still ahead, without claiming
+  local/remote parity. For other pull failures, report the actual error instead of diagnosing
+  divergence.
 - Detached HEAD, merge in progress and rebase in progress are stage 0 guardrails: stop and report.
 
 ## Merged local branches — report, never delete
@@ -209,11 +214,11 @@ stale     2 local branches merged into development
           delete: git branch -d feat/add-cache-retry fix/null-ref-login
 ```
 
-The `prune` line always appears: `skipped: <reason>` if eligibility prevented the question,
-`declined` if refused, or the observed result (`nothing stale` or actual refs removed).
-If approved but never executed, say `approved, not run: <reason>`; if the prune fetch failed, report
-`failed: <error>` and any verified removals. Never imply approval or an attempted fetch was success.
-The `stale` line appears only when there are merged local branches to report after a successful pull.
+The `prune` line always appears. A single repo shows `prune <remote> <result>`; folder mode shows one
+global `prune <result>` unless removals differ per remote, then group them. `<result>` is
+`skipped: <reason>` if eligibility prevented the question, `declined` if refused, `nothing stale`,
+`N stale refs removed  <names>`, or `failed: <error>` — never imply an approval or an attempted fetch
+succeeded. The `stale` line appears only when merged local branches remain after a successful pull.
 
 A folder of repos reports a header and one line per repo, dirty ones included so the skips are
 visible:

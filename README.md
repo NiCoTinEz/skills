@@ -7,7 +7,7 @@ folder where the tool looks.
 
 ## git-flow — branch / commit / push / PR
 
-Same invocation against **GitHub** and **Azure DevOps**. The platform is read off the `origin`
+Same invocation against **GitHub** and **Azure DevOps**. The platform is read off the resolved
 remote: `gh` for `github.com`, `az repos` for `dev.azure.com` / `*.visualstudio.com`.
 
 | Skill | branch | commit | push | PR |
@@ -69,7 +69,7 @@ Git is configured to prune tags.
 **Guardrails**
 
 - Never `--force`, `--no-verify`, amend, rebase, or reset.
-- Never `git add .` without reading `git status` first; refuses to stage `.env*`, `*.pem`,
+- Never `git add .` or `git add -A`; stage named paths, and refuses to stage `.env*`, `*.pem`,
   `*.key`, `id_rsa*` and similar secret-shaped paths.
 - Pushing to the default branch needs explicit confirmation.
 - Non-fast-forward push stops and reports — no force-push, no silent rebase.
@@ -77,17 +77,18 @@ Git is configured to prune tags.
 - Never installs a CLI itself; asks with the exact command and waits.
 
 They share one procedure, split per stage so a skill carries only what it runs — `commit` gets
-`core.md` and `commit.md`, nothing about pushing or pull requests:
+`core.md`, `guardrails.md`, `commit.md` and `report.md`, nothing about pushing or pull requests:
 
 | Source | Holds | Goes to |
 |---|---|---|
 | [`shared/git-flow/core.md`](./shared/git-flow/core.md) | local preflight, current branch, command discipline | all 11 |
 | [`remote.md`](./shared/git-flow/remote.md) | remote/platform detection, base resolution, non-pruning fetch | all except `commit` |
 | [`guardrails.md`](./shared/git-flow/guardrails.md) | stops, secret checks including pre-staged content | all 11 |
+| [`pr-preflight.md`](./shared/git-flow/pr-preflight.md) | `gh`/`az` install + auth check, appended to stage 0 | the 4 `*pr` |
 | [`branch.md`](./shared/git-flow/branch.md) | stage 1 | the 4 `branch*` |
 | [`commit.md`](./shared/git-flow/commit.md) | stage 2 | the 6 `*commit*` |
 | [`push.md`](./shared/git-flow/push.md) | stage 3 | the 6 `*push*` |
-| [`pr.md`](./shared/git-flow/pr.md) | `gh`/`az` preflight, stage 4, GitHub + Azure DevOps calls | the 4 `*pr` |
+| [`pr.md`](./shared/git-flow/pr.md) | stage 4, GitHub + Azure DevOps calls | the 4 `*pr` |
 | [`report.md`](./shared/git-flow/report.md) | completed stages, commits and pre-staged paths included | all except `sync-base` |
 | [`sync-base.md`](./shared/git-flow/sync-base.md) | preview, folder mode, switch/pull and its own report | `sync-base` |
 

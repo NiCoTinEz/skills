@@ -85,8 +85,9 @@ Then, if scripts changed, exercise them against a throwaway dir rather than your
 1. `shared/<set>/heads/<name>.md`: frontmatter with `name` (must equal the folder name) and
    `description`, then what the skill refuses and any stop that is its own. Keep it short — the
    stages carry the procedure.
-2. An entry in the `SKILLS` array in `scripts/build.mjs` listing the stages it runs, in order.
-   Membership there *is* the stage list the head claims in its opening line.
+2. An entry in the `SKILLS` array in `scripts/build.mjs` listing the stage bodies it carries, in
+   order. The head's opening line names the numbered stages; a stage-0 addition (`pr-preflight`)
+   rides stage 0 and is listed there too.
 3. A stage body only if the skill needs one no other skill has → `shared/<set>/<stage>.md`, plus a
    key in `STAGES`. Then `npm run build` writes `skills/<name>/SKILL.md`.
 4. `skills/<name>/agents/openai.yaml` — Codex reads it for the skill's display name and one-line

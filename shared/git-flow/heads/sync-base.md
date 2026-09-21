@@ -2,10 +2,10 @@
 name: sync-base
 description: >
   Switch back to the repository's base branch — main, master, development, whatever this repo
-  actually uses — and fast-forward it to the remote, asking first whether to prune stale
-  remote-tracking refs and reporting which local branches are now merged. In a folder that is not a
-  repo but holds repos, it asks which of them to sync. A dirty tree stops it. Use for "sync base",
-  "back to base", "go back to main and pull".
+  actually uses — and fast-forward it to the remote, asking first, when eligible, whether to prune
+  stale remote-tracking refs and reporting which local branches are now merged. In a folder that is
+  not a repo but holds repos, it asks which of them to sync. A dirty tree stops it. Use for "sync
+  base", "back to base", "go back to main and pull".
 allowed-tools: Bash, PowerShell, Read, Glob, Grep
 ---
 
@@ -14,7 +14,7 @@ stages 1-4** — never create a branch, never commit, never push, never open a p
 skips the `gh` / `az` check, and **resolving `<base>` correctly is the entire point of this skill**:
 follow the order below, because a hardcoded `main` / `master` guess lands the user on the wrong
 branch or on none at all. Eligible runs use three calls: preflight, switch, pull, with one prune
-question between the first two. Ineligible repos stop before that question. Folder mode normally
+question between the first two. Ineligible repos are excluded before it. Folder mode normally
 runs four, batching the per-repo probe, and asks which repos to sync first. Missing remote/base
 information uses the shared fallback probes, batched across unresolved repos before proceeding.
 
