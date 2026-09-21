@@ -8,8 +8,8 @@ allowed-tools: Bash, PowerShell, Read, Glob, Grep
 ---
 
 Run stages **0 → 1 → 2 → 3 → 4 → 5** — the whole procedure, all of it below. Roughly six tool
-calls, plus content inspection if needed: preflight, branch, one per commit, push, two for the PR. Don't improvise
-the commands from memory; the blocks below are written to be run as they stand.
+calls, plus content inspection if needed: preflight, branch, one per commit, push, two for the PR.
+Don't improvise the commands from memory; the blocks below are written to be run as they stand.
 
 If a CLI or the `azure-devops` extension is missing, **ask the user to install it with the exact
 command and stop there** — never install it yourself. Report which stages already completed.

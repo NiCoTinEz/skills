@@ -2,10 +2,10 @@
 name: sync-base
 description: >
   Switch back to the repository's base branch — main, master, development, whatever this repo
-  actually uses — and fast-forward it to the remote, asking first whether to prune stale
-  remote-tracking refs and reporting which local branches are now merged. In a folder that is not a
-  repo but holds repos, it asks which of them to sync. A dirty tree stops it. Use for "sync base",
-  "back to base", "go back to main and pull".
+  actually uses — and fast-forward it to the remote, asking first, when eligible, whether to prune
+  stale remote-tracking refs and reporting which local branches are now merged. In a folder that is
+  not a repo but holds repos, it asks which of them to sync. A dirty tree stops it. Use for "sync
+  base", "back to base", "go back to main and pull".
 allowed-tools: Bash, PowerShell, Read, Glob, Grep
 ---
 
@@ -16,7 +16,7 @@ stages 1-4** — never create a branch, never commit, never push, never open a p
 skips the `gh` / `az` check, and **resolving `<base>` correctly is the entire point of this skill**:
 follow the order below, because a hardcoded `main` / `master` guess lands the user on the wrong
 branch or on none at all. Eligible runs use three calls: preflight, switch, pull, with one prune
-question between the first two. Ineligible repos stop before that question. Folder mode normally
+question between the first two. Ineligible repos are excluded before it. Folder mode normally
 runs four, batching the per-repo probe, and asks which repos to sync first. Missing remote/base
 information uses the shared fallback probes, batched across unresolved repos before proceeding.
 
@@ -49,7 +49,7 @@ commit skill. Read out of that one answer:
 | Fact | From |
 |---|---|
 | repo root, current branch | lines 1 and 3 |
-| `<branch>` | line 3; replace it with the branch created or reused by stage 1 |
+| `<branch>` | line 3; the branch created or reused by stage 1, or the current branch when no stage 1 runs |
 | dirty / staged | porcelain lines other than the `##` header; staged = first column not space or `?` |
 | what changed | the two `--stat` lines — enough to name a branch and write a message |
 
@@ -88,7 +88,7 @@ Git configuration: preflight must never delete refs. What the extra lines give y
 | Fact | From |
 |---|---|
 | platform, `<remote>` | the redacted URL: `github.com` → GitHub + `gh`; `dev.azure.com`, `.visualstudio.com`, `ssh.dev.azure.com` → Azure DevOps + `az repos`; neither → unknown, so no automated pull request, though `<remote>` still stands |
-| `<base>` | the convention grep wins outright; otherwise `refs/remotes/origin/HEAD` minus its prefix |
+| `<base>` | the convention grep wins outright; otherwise `refs/remotes/<remote>/HEAD` minus its prefix |
 
 **An explicit remote wins; otherwise use `origin` if present.** If it is missing, list names with `git remote`
 and capture one redacted URL each: a single remote wins, otherwise the one GitHub or Azure DevOps
@@ -119,7 +119,7 @@ Every later stage uses `<base>`, never a literal branch name.
 Refuse and explain rather than working around any of these:
 
 - **Nothing to commit** — a skill running stage 2 stops on a clean tree. For a skill that doesn't
-  commit, a clean tree is normal; its equivalent is *nothing to ship*, in stage 4.
+  commit, a clean tree is normal; its own equivalent is the nothing-to-ship stop, in stage 3 or 4.
 - **No `--force`, no `--force-with-lease`, no `--no-verify`**, and no push to a protected or default
   branch unless the user asks for it in this turn.
 - **No amend, no rebase, no reset** of existing commits. New commits only.
@@ -187,8 +187,9 @@ Stage 0 failed on every git line and the detection line listed `.git` entries: t
 repos, so there is no single base to land on. **Ask what to do, and touch nothing until the answer
 arrives:**
 
-- **Sync all** — say how many, because "all" means that many fetches. Past roughly twenty, say so
-  plainly and offer narrowing instead; still do it if the user says all anyway.
+- **Sync all** — say how many, because "all" means up to twice that many fetches: one probe each, plus
+  one more each if pruning is approved. Past roughly twenty, say so plainly and offer narrowing
+  instead; still do it if the user says all anyway.
 - **Select some** — list the repo names in the order detection printed them, and take the ones named.
 - **Nothing** — stop, saying the folder itself is not a repo, so no base was touched.
 
@@ -233,6 +234,7 @@ Then pull only repos whose landing commands succeeded and whose current branch i
 ```bash
 git -C "<dir>" pull --ff-only --no-prune "<remote>" "<base>"
 git -C "<dir>" log --oneline -1
+git -C "<dir>" rev-list --left-right --count "<remote>/<base>...HEAD"
 git -C "<dir>" branch --merged "<base>"
 ```
 
@@ -244,11 +246,12 @@ branch. A failed pull is reported as failed; do not describe its merged-branch l
 Apply preflight's dirty-tree and other guardrails **before asking about pruning**. Anything
 modified, staged or untracked makes that repo ineligible: name the paths and skip pruning,
 switching and pulling. In a single repo, stop; in folder mode, continue only with eligible repos.
-If none remain, report `prune skipped: <reason>` and stop without the prune question.
+If none remain, stop without the prune question, reporting the `prune` line as `skipped: <reason>`
+(Stage 5 gives its exact shape).
 
 ```
-dirty     src/Cache.cs, README.md
-prune     skipped: dirty tree
+dirty     src/example.cs, README.md
+prune     <remote>  skipped: dirty tree
 ```
 
 Offer `commit` or `branch-commit` for dirty work. Stash only if the user asks in that turn; explain
@@ -297,6 +300,7 @@ Continue only if landing succeeded and the reported branch is `<base>`. Then:
 ```bash
 git pull --ff-only --no-prune "<remote>" "<base>"
 git log --oneline -1
+git rev-list --left-right --count "<remote>/<base>...HEAD"
 git branch --merged "<base>"
 ```
 
@@ -315,8 +319,9 @@ would move without complaint. The two `HEAD` readings also give the report its r
   that fails, `git switch --track <remote>/<base>`.
 - **`--ff-only` is deliberate.** A non-fast-forward refusal means the local and remote histories
   have diverged: stop, never rebase, reset, force or merge past it. A local-only lead succeeds and
-  stays intact; report local commits still ahead if known, without claiming local/remote parity.
-  For other pull failures, report the actual error instead of diagnosing divergence.
+  stays intact; the `rev-list` count names the local commits still ahead, without claiming
+  local/remote parity. For other pull failures, report the actual error instead of diagnosing
+  divergence.
 - Detached HEAD, merge in progress and rebase in progress are stage 0 guardrails: stop and report.
 
 ## Merged local branches — report, never delete
@@ -349,11 +354,11 @@ stale     2 local branches merged into development
           delete: git branch -d feat/add-cache-retry fix/null-ref-login
 ```
 
-The `prune` line always appears: `skipped: <reason>` if eligibility prevented the question,
-`declined` if refused, or the observed result (`nothing stale` or actual refs removed).
-If approved but never executed, say `approved, not run: <reason>`; if the prune fetch failed, report
-`failed: <error>` and any verified removals. Never imply approval or an attempted fetch was success.
-The `stale` line appears only when there are merged local branches to report after a successful pull.
+The `prune` line always appears. A single repo shows `prune <remote> <result>`; folder mode shows one
+global `prune <result>` unless removals differ per remote, then group them. `<result>` is
+`skipped: <reason>` if eligibility prevented the question, `declined` if refused, `nothing stale`,
+`N stale refs removed  <names>`, or `failed: <error>` — never imply an approval or an attempted fetch
+succeeded. The `stale` line appears only when merged local branches remain after a successful pull.
 
 A folder of repos reports a header and one line per repo, dirty ones included so the skips are
 visible:

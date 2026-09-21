@@ -55,7 +55,7 @@ commit skill. Read out of that one answer:
 | Fact | From |
 |---|---|
 | repo root, current branch | lines 1 and 3 |
-| `<branch>` | line 3; replace it with the branch created or reused by stage 1 |
+| `<branch>` | line 3; the branch created or reused by stage 1, or the current branch when no stage 1 runs |
 | dirty / staged | porcelain lines other than the `##` header; staged = first column not space or `?` |
 | what changed | the two `--stat` lines — enough to name a branch and write a message |
 
@@ -94,7 +94,7 @@ Git configuration: preflight must never delete refs. What the extra lines give y
 | Fact | From |
 |---|---|
 | platform, `<remote>` | the redacted URL: `github.com` → GitHub + `gh`; `dev.azure.com`, `.visualstudio.com`, `ssh.dev.azure.com` → Azure DevOps + `az repos`; neither → unknown, so no automated pull request, though `<remote>` still stands |
-| `<base>` | the convention grep wins outright; otherwise `refs/remotes/origin/HEAD` minus its prefix |
+| `<base>` | the convention grep wins outright; otherwise `refs/remotes/<remote>/HEAD` minus its prefix |
 
 **An explicit remote wins; otherwise use `origin` if present.** If it is missing, list names with `git remote`
 and capture one redacted URL each: a single remote wins, otherwise the one GitHub or Azure DevOps
@@ -125,7 +125,7 @@ Every later stage uses `<base>`, never a literal branch name.
 Refuse and explain rather than working around any of these:
 
 - **Nothing to commit** — a skill running stage 2 stops on a clean tree. For a skill that doesn't
-  commit, a clean tree is normal; its equivalent is *nothing to ship*, in stage 4.
+  commit, a clean tree is normal; its own equivalent is the nothing-to-ship stop, in stage 3 or 4.
 - **No `--force`, no `--force-with-lease`, no `--no-verify`**, and no push to a protected or default
   branch unless the user asks for it in this turn.
 - **No amend, no rebase, no reset** of existing commits. New commits only.
@@ -165,6 +165,10 @@ az extension show --name azure-devops --query name -o tsv
 `winget install --id Microsoft.AzureCLI`; `az extension add --name azure-devops`; `az login`, or a
 PAT with `Code (read & write)` plus `Pull Request contribute` scope in `AZURE_DEVOPS_EXT_PAT`
 (`TF400813`, a `401` or a prompt all mean auth). Wait for the user to resolve it, then recheck.
+
+**Unknown platform** — a remote that is neither GitHub nor Azure (see the stage 0 table) has no
+automated pull request: skip only stage 4 and tell the user to open it in the host's web UI. Any
+branch, commit or push stage this skill runs still completes.
 
 ## Stage 4 — Pull request
 
@@ -222,7 +226,7 @@ $prBody = @'
 '@
 $prBodyFile = Join-Path (git rev-parse --git-dir) PR_BODY_TMP.md
 try {
-  Set-Content -LiteralPath $prBodyFile -Value $prBody -Encoding utf8
+  [IO.File]::WriteAllText($prBodyFile, $prBody, [Text.UTF8Encoding]::new($false))
   gh pr create --base "<base>" --head "<branch>" --title "<title>" --body-file $prBodyFile
 } finally { Remove-Item -LiteralPath $prBodyFile -ErrorAction SilentlyContinue }
 ```
@@ -253,6 +257,8 @@ az repos pr create --organization "https://dev.azure.com/<org>" --project "<proj
 ```
 
 - `--description` takes one argument per line; an empty string adds a blank line. No body file.
+  In PowerShell pass a single space `" "` for that blank line, so it is never dropped as an empty
+  argument to a native command.
 - **Description: at most 4,000 characters**, including Markdown, spaces and joined newlines.
   Count the assembled text before create/update; shorten it while preserving summary and test results.
 - Report URL: repository web URL + `/pullrequest/` + ID, using the two returned TSV values.
@@ -267,7 +273,7 @@ was skipped or failed keeps its line and carries the reason.
 platform  GitHub | Azure DevOps
 branch    feat/add-cache-retry  (from main)
 commit    a1b2c3d  feat(cache): add retry on transient Redis failure
-included  already staged: src/Cache.cs
+included  already staged: src/example.cs
 push      <remote>/feat/add-cache-retry
 pr        https://github.com/owner/repo/pull/42
 ```

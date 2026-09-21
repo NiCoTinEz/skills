@@ -1,25 +1,3 @@
-## Stage 0 addition — CLI preflight
-
-Append the platform's block to stage 0's **same call**, before any branch, commit or push.
-GitHub — this checks both installation and authentication:
-
-```bash
-gh auth status
-```
-
-Azure DevOps — check installation and extension; authentication is checked by the first repo API call:
-
-```bash
-az version -o tsv
-az extension show --name azure-devops --query name -o tsv
-```
-
-**A failed check stops later stages. Never install a CLI or extension yourself.** Give the command:
-`brew install gh` or `winget install --id GitHub.cli`; `gh auth login`;
-`winget install --id Microsoft.AzureCLI`; `az extension add --name azure-devops`; `az login`, or a
-PAT with `Code (read & write)` plus `Pull Request contribute` scope in `AZURE_DEVOPS_EXT_PAT`
-(`TF400813`, a `401` or a prompt all mean auth). Wait for the user to resolve it, then recheck.
-
 ## Stage 4 — Pull request
 
 ### Call one — parity and duplicates
@@ -76,7 +54,7 @@ $prBody = @'
 '@
 $prBodyFile = Join-Path (git rev-parse --git-dir) PR_BODY_TMP.md
 try {
-  Set-Content -LiteralPath $prBodyFile -Value $prBody -Encoding utf8
+  [IO.File]::WriteAllText($prBodyFile, $prBody, [Text.UTF8Encoding]::new($false))
   gh pr create --base "<base>" --head "<branch>" --title "<title>" --body-file $prBodyFile
 } finally { Remove-Item -LiteralPath $prBodyFile -ErrorAction SilentlyContinue }
 ```
@@ -107,6 +85,8 @@ az repos pr create --organization "https://dev.azure.com/<org>" --project "<proj
 ```
 
 - `--description` takes one argument per line; an empty string adds a blank line. No body file.
+  In PowerShell pass a single space `" "` for that blank line, so it is never dropped as an empty
+  argument to a native command.
 - **Description: at most 4,000 characters**, including Markdown, spaces and joined newlines.
   Count the assembled text before create/update; shorten it while preserving summary and test results.
 - Report URL: repository web URL + `/pullrequest/` + ID, using the two returned TSV values.

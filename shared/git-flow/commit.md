@@ -49,7 +49,7 @@ feat(cache): add retry on transient Redis failure
 - transient socket errors were surfacing as 500s
 '@
 $f = Join-Path (git rev-parse --git-dir) COMMIT_MSG_TMP
-Set-Content -Path $f -Value $msg -Encoding utf8
+[IO.File]::WriteAllText($f, $msg, [Text.UTF8Encoding]::new($false))
 git commit --quiet -F $f
 Remove-Item $f
 git diff --staged --stat

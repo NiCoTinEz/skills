@@ -7,7 +7,7 @@ was skipped or failed keeps its line and carries the reason.
 platform  GitHub | Azure DevOps
 branch    feat/add-cache-retry  (from main)
 commit    a1b2c3d  feat(cache): add retry on transient Redis failure
-included  already staged: src/Cache.cs
+included  already staged: src/example.cs
 push      <remote>/feat/add-cache-retry
 pr        https://github.com/owner/repo/pull/42
 ```
