@@ -7,11 +7,16 @@ description: >
   not a repo but holds repos, it asks which of them to sync. A dirty tree stops it. Use for "sync
   base", "back to base", "go back to main and pull".
 allowed-tools: >-
-  Bash(git rev-parse *) Bash(git status *) Bash(git symbolic-ref *) Bash(git log *)
-  Bash(git diff *) Bash(git remote get-url *) Bash(git remote set-head *) Bash(git fetch *)
-  Bash(git rev-list *) Bash(grep *) Bash(git switch *) Bash(git for-each-ref *)
-  Bash(git ls-remote *) Bash(git pull --ff-only *) Bash(git branch --merged *)
-  Bash(find . -mindepth *)
+  Bash(git rev-parse *) Bash(git status --porcelain=v1 --branch)
+  Bash(git symbolic-ref --quiet --short HEAD) Bash(git log --oneline -5) Bash(git diff --shortstat)
+  Bash(git diff --staged --shortstat) Bash(git diff -- *) Bash(git diff --cached -- *)
+  Bash(git remote get-url *) Bash(git symbolic-ref --quiet refs/remotes/*/HEAD)
+  Bash(git fetch origin --no-prune --quiet) Bash(git remote set-head *) Bash(git rev-list *)
+  Bash(grep -nisE *) Bash(git for-each-ref *) Bash(git ls-remote *)
+  Bash(git diff --ignore-cr-at-eol --name-only)
+  Bash(git diff --cached --ignore-cr-at-eol --name-only)
+  Bash(find . -mindepth 2 -maxdepth 2 -name .git) Bash(find . -mindepth 3 -maxdepth 3 -name .git)
+  Bash(git pull --ff-only --no-prune *) Bash(git log --oneline -1) Bash(git branch --merged *)
 ---
 
 Run stage **0**, then the procedure below, then stage **5**. **Do not run

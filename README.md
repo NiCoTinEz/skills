@@ -76,12 +76,17 @@ Git is configured to prune tags.
 - Non-fast-forward push stops and reports — no force-push, no silent rebase.
 - Nothing to push, or no commits between branch and base, stops and says which — no empty PR.
 - Never installs a CLI itself; asks with the exact command and waits.
-- `allowed-tools` pre-approves only read-only and local commands (`git status`, `git add`,
-  `git commit`, `gh pr list`, …). `git push`, `gh pr create` and `az repos pr create` are never
-  listed, so anything that reaches a remote still goes through your own permission settings.
+- `allowed-tools` pre-approves only the exact read-only and local command forms the stages emit
+  (`git add -- <paths>`, `git commit --quiet -F <file>`, `gh pr list …`), never a bare `git add` or
+  `git commit` that would also admit `-A`, `--amend` or `--no-verify`. `git push`, `gh pr create`
+  and `az repos pr create` are never listed, so anything that reaches a remote still goes through
+  your own permission settings. Batched lines with a pipe, a heredoc or `git -C` may not match a
+  pattern and then prompt as usual — unverified how Claude Code splits them.
+- Pushing is warned about and confirmed when the current branch is `<base>` **or** the branch
+  `<remote>/HEAD` points at, so a `development` convention can't hide a direct push to `main`.
 - A new branch is created with `--no-track`, so it never inherits `<remote>/<base>` as its upstream.
-- `push-pr` checks for commits ahead of the base before pushing, so an empty branch never reaches
-  the remote.
+- Every skill that opens a PR checks for commits ahead of the base, open PRs and CLI auth *before*
+  it pushes, so an empty branch or a failed `az` login never leaves a half-shipped push behind.
 
 They share one procedure, split per stage so a skill carries only what it runs — `commit` gets
 `core.md`, `guardrails.md`, `commit.md` and `report.md`, nothing about pushing or pull requests:

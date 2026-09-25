@@ -5,15 +5,20 @@ description: >
   upstream, and open a pull request. Use for "branch commit push pr", "ship this", "make a branch
   and PR".
 allowed-tools: >-
-  Bash(git rev-parse *) Bash(git status *) Bash(git symbolic-ref *) Bash(git log *)
-  Bash(git diff *) Bash(git remote get-url *) Bash(git remote set-head *) Bash(git fetch *)
-  Bash(git rev-list *) Bash(grep *) Bash(git switch *) Bash(git add *) Bash(git commit *)
-  Bash(git show *) Bash(gh auth status) Bash(gh repo view *) Bash(gh pr list *) Bash(az version *)
-  Bash(az extension show *) Bash(az repos show *) Bash(az repos list *) Bash(az repos pr list *)
+  Bash(git rev-parse *) Bash(git status --porcelain=v1 --branch)
+  Bash(git symbolic-ref --quiet --short HEAD) Bash(git log --oneline -5) Bash(git diff --shortstat)
+  Bash(git diff --staged --shortstat) Bash(git diff -- *) Bash(git diff --cached -- *)
+  Bash(git remote get-url *) Bash(git symbolic-ref --quiet refs/remotes/*/HEAD)
+  Bash(git fetch origin --no-prune --quiet) Bash(git remote set-head *) Bash(git rev-list *)
+  Bash(grep -nisE *) Bash(git switch --create *) Bash(git add -- *) Bash(git commit --quiet -F *)
+  Bash(git show --shortstat --format=%h HEAD) Bash(gh auth status) Bash(gh repo view *)
+  Bash(gh pr list *) Bash(az version *) Bash(az extension show *) Bash(az repos show *)
+  Bash(az repos list *) Bash(az repos pr list *)
 ---
 
-Run stages **0 → 1 → 2 → 3 → 4 → 5** — the whole procedure, all of it below. Roughly six tool
-calls, plus content inspection if needed: preflight, branch, one per commit, push, two for the PR.
+Run stages **0 → 1 → 2 → 3 → 4 → 5** — the whole procedure, all of it below. Six tool calls,
+seven on a dirty tree, plus content inspection: preflight, branch, one per commit, the PR check,
+push, create.
 Don't improvise the commands from memory; the blocks below are written to be run as they stand.
 
 If a CLI or the `azure-devops` extension is missing, **ask the user to install it with the exact

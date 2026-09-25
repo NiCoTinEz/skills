@@ -11,14 +11,12 @@ matters with `git diff -- <path>` — never the whole tree. **A clean tree has n
 branch from**: take the name the user passed, and if there is none, ask for one rather than
 inventing a slug for work that doesn't exist yet.
 
-One call — preflight already fetched, so this creates and nothing else:
+One call — preflight already fetched. `--no-track` stops `<remote>/<base>` becoming the upstream,
+which a later bare `git push` under `push.default=upstream` would push straight into:
 
 ```bash
 git switch --create <type>/<slug> --no-track <remote>/<base>
 ```
-
-`--no-track`, or the new branch's upstream becomes `<remote>/<base>` and a later bare `git push`
-under `push.default=upstream` lands on `<base>`.
 
 - **A dirty tree branches off HEAD instead**, so the pending work comes along:
   `git switch --create <type>/<slug>`. That case spends one call first, because branching off a HEAD

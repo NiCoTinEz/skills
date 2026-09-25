@@ -1,9 +1,7 @@
 ## Stage 0 addition — CLI preflight
 
-Append the platform's block to stage 0's **same call**, before any branch, commit or push. The
-platform resolves from that same call's own output, so unless it is already known, append **both**
-blocks — three read-only lines between them — and read only the resolved platform's answer.
-GitHub — this checks both installation and authentication:
+Append **both** blocks to stage 0's **same call** (the platform isn't known until it answers), and
+read only the resolved platform's. GitHub — installation and authentication:
 
 ```bash
 gh auth status

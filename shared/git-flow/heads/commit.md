@@ -5,8 +5,10 @@ description: >
   no new branch, no push, no pull request. Use for "commit", "commit only", "commit without
   pushing".
 allowed-tools: >-
-  Bash(git rev-parse *) Bash(git status *) Bash(git symbolic-ref *) Bash(git log *)
-  Bash(git diff *) Bash(git add *) Bash(git commit *) Bash(git show *)
+  Bash(git rev-parse *) Bash(git status --porcelain=v1 --branch)
+  Bash(git symbolic-ref --quiet --short HEAD) Bash(git log --oneline -5) Bash(git diff --shortstat)
+  Bash(git diff --staged --shortstat) Bash(git diff -- *) Bash(git diff --cached -- *)
+  Bash(git add -- *) Bash(git commit --quiet -F *) Bash(git show --shortstat --format=%h HEAD)
 ---
 
 Run stages **0 → 2 → 5**, all of them below. **Skip stages 1, 3 and 4** — never create or switch

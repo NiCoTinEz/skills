@@ -45,11 +45,14 @@ or for Azure DevOps, one line, stripping `refs/heads/` from the answer:
 az repos show --organization "https://dev.azure.com/<org>" --project "<project>" --repository "<repo>" --query defaultBranch -o tsv
 ```
 
-Use the repository identified by the resolved remote, including in folder mode. Cache the answer with
-`git remote set-head "<remote>" "<base>"` once that tracking ref exists. Only if all that
+Use the repository identified by the resolved remote, including in folder mode. Cache only the
+platform's answer with `git remote set-head "<remote>" "<name>"` — never a convention base, or
+`<remote>/HEAD` stops naming the real default branch. Only if all that
 fails, take whichever of `<remote>/main`, `<remote>/master`, `<remote>/development`,
 `<remote>/develop` exists — and if two candidates remain plausible, take the one this ladder ranks
 higher and say which and why rather than asking. No candidate means stop and request the base.
 Batch needed fallback probes across repositories; never switch using an unresolved base or remote.
 Branch names are case-sensitive and may contain `/`: quote them without changing case.
-Every later stage uses `<base>`, never a literal branch name.
+Every later stage uses `<base>`, never a literal branch name. **Default branch**, wherever a check
+below names it, means `<base>` *or* the branch `refs/remotes/<remote>/HEAD` points at: a convention
+base of `development` must not hide a push straight to `main`.
