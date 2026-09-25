@@ -2,10 +2,8 @@
 
 Stages: **0 preflight → 1 branch → 2 commit → 3 push → 4 pull request → 5 report**. Only the ones
 this skill runs appear below; run them in order and stop at the last. **Each block below is one tool
-call** — its lines run in one shell and answer at once, so don't split a block across calls and don't
-add a call a block already covers. A stage is one block unless it says otherwise: every line in a
-block runs before you see any of the output, so a stage whose next step depends on the previous one
-having worked says so and spends the second call.
+call** — don't split it, and don't add a call a block already covers. Every line runs before you see
+any output, so a stage whose next step depends on an earlier one says so and spends a second call.
 
 ## Stage 0 — Preflight (always)
 
@@ -28,9 +26,7 @@ commit skill. Read out of that one answer:
 | dirty / staged | porcelain lines other than the `##` header; staged = first column not space or `?` |
 | what changed | porcelain paths plus the two bounded `--shortstat` summaries — enough to name a branch and write a message without flooding a large tree |
 
-**Command discipline.** Keep output scoped — `--shortstat`, `--quiet`, `--porcelain`,
-`--query … -o tsv` — and never run a command whose full output you won't read. Every line must run
-in Bash *and* PowerShell: one command per line, no `\` continuation (a PowerShell parse error), no
-backtick (breaks Bash), and no nested quotes inside `--query` (PowerShell strips the inner pair, so
-any hyphenated JMESPath key is unwritable — pick a query that doesn't need one). Where no portable
-form exists, both variants are given.
+**Command discipline.** Keep output scoped (`--shortstat`, `--quiet`, `--porcelain`, `-o tsv`);
+never run a command whose full output you won't read. Every line runs in Bash *and* PowerShell: one
+command per line, no `\` continuation, no backtick, no nested quotes inside `--query` (PowerShell
+strips the inner pair). Where no portable form exists, both variants are given.

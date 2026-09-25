@@ -17,7 +17,5 @@ Refuse and explain rather than working around any of these:
 
 ## Act, don't ask
 
-Preflight has already answered most of what a stage below might otherwise stop to ask about. Where
-it has, **make the call and name it in the report** rather than putting the question to the user —
-each stage says which choice is its own. The guardrails above are the exception: those stop the
-flow.
+Where preflight already answers a question a stage might ask, **make the call and name it in the
+report** — each stage says which choices are its own. The guardrails above still stop the flow.

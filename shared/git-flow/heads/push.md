@@ -3,7 +3,10 @@ name: push
 description: >
   Push the commits already on the current branch, setting upstream on the first push — no new
   branch, no commit, no pull request. Use for "push", "push only", "push without a PR".
-allowed-tools: Bash, Read, Glob, Grep
+allowed-tools: >-
+  Bash(git rev-parse *) Bash(git status *) Bash(git symbolic-ref *) Bash(git log *)
+  Bash(git diff *) Bash(git remote get-url *) Bash(git remote set-head *) Bash(git fetch *)
+  Bash(git rev-list *) Bash(grep *)
 ---
 
 Run stages **0 → 3 → 5**, all of them below. **Skip stages 1, 2 and 4** — never create or switch

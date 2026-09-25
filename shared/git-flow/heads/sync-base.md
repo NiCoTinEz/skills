@@ -6,7 +6,12 @@ description: >
   stale remote-tracking refs and reporting which local branches are now merged. In a folder that is
   not a repo but holds repos, it asks which of them to sync. A dirty tree stops it. Use for "sync
   base", "back to base", "go back to main and pull".
-allowed-tools: Bash, Read, Glob, Grep
+allowed-tools: >-
+  Bash(git rev-parse *) Bash(git status *) Bash(git symbolic-ref *) Bash(git log *)
+  Bash(git diff *) Bash(git remote get-url *) Bash(git remote set-head *) Bash(git fetch *)
+  Bash(git rev-list *) Bash(grep *) Bash(git switch *) Bash(git for-each-ref *)
+  Bash(git ls-remote *) Bash(git pull --ff-only *) Bash(git branch --merged *)
+  Bash(find . -mindepth *)
 ---
 
 Run stage **0**, then the procedure below, then stage **5**. **Do not run

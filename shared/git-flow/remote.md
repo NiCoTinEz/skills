@@ -19,16 +19,14 @@ $repo_root = (git rev-parse --show-toplevel)
 Select-String -Path "$repo_root\CLAUDE.md","$repo_root\AGENTS.md","$repo_root\CONTRIBUTING.md" -Pattern "base branch","pull request.*(target|into|against)" -ErrorAction SilentlyContinue
 ```
 
-That strips any user-info from the URL, so what prints is safe to keep and to report. **Never print
-`git remote -v`** — it shows every URL unredacted, passwords and PATs included. `grep -s` matters:
-without it, absent convention files print warnings. This fetch refreshes refs for the later stages;
-the standalone `commit` skill omits this remote half. `--no-prune` overrides automatic pruning in
-Git configuration: preflight must never delete refs. What the extra lines give you:
+That strips user-info from the URL, so it is safe to report. **Never print `git remote -v`** — it
+shows every URL unredacted, PATs included. `grep -s` silences absent convention files. `--no-prune`
+overrides configured auto-pruning: preflight never deletes refs. What the extra lines give you:
 
 | Fact | From |
 |---|---|
 | platform, `<remote>` | the redacted URL: `github.com` → GitHub + `gh`; `dev.azure.com`, `.visualstudio.com`, `ssh.dev.azure.com` → Azure DevOps + `az repos`; neither → unknown, so no automated pull request, though `<remote>` still stands |
-| `<base>` | the convention grep wins outright; otherwise `refs/remotes/<remote>/HEAD` minus its prefix |
+| `<base>` | a convention grep line that names a branch wins; otherwise `refs/remotes/<remote>/HEAD` minus its prefix |
 
 **An explicit remote wins; otherwise use `origin` if present.** If it is missing, list names with `git remote`
 and capture one redacted URL each: a single remote wins, otherwise the one GitHub or Azure DevOps
@@ -37,7 +35,9 @@ After resolving a missing remote, batch its redacted URL, HEAD and non-pruning f
 Substitute the resolved name into every later command — never hardcode `origin` past this point.
 
 **`<base>` is never guessed from a hardcoded list.** A convention in `CLAUDE.md`, `AGENTS.md` or
-`CONTRIBUTING.md` outranks the platform default. If neither the grep nor
+`CONTRIBUTING.md` outranks the platform default — but only a line that names a branch, and only
+while `<remote>/<name>` exists: the first later command using it is the check, and a missing ref
+drops to the next rung instead of stopping. If neither the grep nor
 `refs/remotes/<remote>/HEAD` answers, ask the platform once — `gh repo view "<host>/<owner>/<repo>" --json defaultBranchRef --jq .defaultBranchRef.name`,
 or for Azure DevOps, one line, stripping `refs/heads/` from the answer:
 

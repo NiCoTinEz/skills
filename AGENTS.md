@@ -43,6 +43,11 @@ cost 2-5 tool calls before any work and bought nothing over having the body alre
   splits one into several commands the agent must run separately is a regression, not a hardening.
 - **Frontmatter stays portable.** `name` and `description` are the only keys every tool reads.
   Extra keys are ignored by others, so keep tool-specific ones optional and harmless.
+- **`allowed-tools` is a permission grant, not a tool list.** Claude Code runs every listed pattern
+  without a prompt for the turn the skill is invoked. List only read-only and local commands as
+  `Bash(<cmd> *)` patterns; never a bare `Bash`, and never `git push`, `gh pr create`,
+  `az repos pr create` or anything else that reaches a remote. Those stay behind the user's own
+  permission settings. It is a folded `>-` string so it costs ~5 lines against `MAX_LINES`.
 - **`description` is the routing signal.** It is the only text a tool sees before deciding to load
   the skill — state what it does *and* the phrases that should trigger it.
 - **Plugin content changes require a version bump.** Claude Code caches plugin versions, so update

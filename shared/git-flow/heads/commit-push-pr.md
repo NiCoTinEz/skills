@@ -3,7 +3,12 @@ name: commit-push-pr
 description: >
   Commit on the current branch, push it, and open a pull request — no new branch created. Use for
   "commit push pr", "PR this branch", "commit and raise a PR".
-allowed-tools: Bash, Read, Glob, Grep
+allowed-tools: >-
+  Bash(git rev-parse *) Bash(git status *) Bash(git symbolic-ref *) Bash(git log *)
+  Bash(git diff *) Bash(git remote get-url *) Bash(git remote set-head *) Bash(git fetch *)
+  Bash(git rev-list *) Bash(grep *) Bash(git add *) Bash(git commit *) Bash(git show *)
+  Bash(gh auth status) Bash(gh repo view *) Bash(gh pr list *) Bash(az version *)
+  Bash(az extension show *) Bash(az repos show *) Bash(az repos list *) Bash(az repos pr list *)
 ---
 
 Run stages **0 → 2 → 3 → 4 → 5**, all of them below. **Skip stage 1** — commit on the branch
