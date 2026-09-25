@@ -4,7 +4,9 @@ description: >
   Commit the current work on the branch already checked out, with a Conventional Commits message —
   no new branch, no push, no pull request. Use for "commit", "commit only", "commit without
   pushing".
-allowed-tools: Bash, Read, Glob, Grep
+allowed-tools: >-
+  Bash(git rev-parse *) Bash(git status *) Bash(git symbolic-ref *) Bash(git log *)
+  Bash(git diff *) Bash(git add *) Bash(git commit *) Bash(git show *)
 ---
 
 Run stages **0 → 2 → 5**, all of them below. **Skip stages 1, 3 and 4** — never create or switch

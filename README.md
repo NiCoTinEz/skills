@@ -36,7 +36,8 @@ behind local HEAD, stops it with a pointer to `push-pr` instead.
 `development`, whatever this repo actually uses — and fast-forwards it (`git pull --ff-only`). It is
 the end of the cycle the others start. It resolves `<base>` the same four ways they do rather than
 guessing, and a dirty tree stops it: `git switch` would carry uncommitted work onto the base branch
-without a word. The one thing it can delete is stale remote-tracking refs, and eligible runs ask once,
+without a word. Files that differ only in line endings don't count as dirty — they are reported as
+`eol-only` instead, since no checkout can clear them. The one thing it can delete is stale remote-tracking refs, and eligible runs ask once,
 even when nothing is stale — showing the preview before you answer. Ineligible repos skip that step
 and report the reason. Pruning never deletes local branches or changes
 the remote itself. Once it lands on the refreshed base it also lists the local branches now merged into it —
@@ -75,6 +76,12 @@ Git is configured to prune tags.
 - Non-fast-forward push stops and reports — no force-push, no silent rebase.
 - Nothing to push, or no commits between branch and base, stops and says which — no empty PR.
 - Never installs a CLI itself; asks with the exact command and waits.
+- `allowed-tools` pre-approves only read-only and local commands (`git status`, `git add`,
+  `git commit`, `gh pr list`, …). `git push`, `gh pr create` and `az repos pr create` are never
+  listed, so anything that reaches a remote still goes through your own permission settings.
+- A new branch is created with `--no-track`, so it never inherits `<remote>/<base>` as its upstream.
+- `push-pr` checks for commits ahead of the base before pushing, so an empty branch never reaches
+  the remote.
 
 They share one procedure, split per stage so a skill carries only what it runs — `commit` gets
 `core.md`, `guardrails.md`, `commit.md` and `report.md`, nothing about pushing or pull requests:

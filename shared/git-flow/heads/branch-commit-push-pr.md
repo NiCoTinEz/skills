@@ -4,7 +4,12 @@ description: >
   Full ship flow: create a type/short-slug branch, write a Conventional Commits commit, push with
   upstream, and open a pull request. Use for "branch commit push pr", "ship this", "make a branch
   and PR".
-allowed-tools: Bash, Read, Glob, Grep
+allowed-tools: >-
+  Bash(git rev-parse *) Bash(git status *) Bash(git symbolic-ref *) Bash(git log *)
+  Bash(git diff *) Bash(git remote get-url *) Bash(git remote set-head *) Bash(git fetch *)
+  Bash(git rev-list *) Bash(grep *) Bash(git switch *) Bash(git add *) Bash(git commit *)
+  Bash(git show *) Bash(gh auth status) Bash(gh repo view *) Bash(gh pr list *) Bash(az version *)
+  Bash(az extension show *) Bash(az repos show *) Bash(az repos list *) Bash(az repos pr list *)
 ---
 
 Run stages **0 → 1 → 2 → 3 → 4 → 5** — the whole procedure, all of it below. Roughly six tool

@@ -4,7 +4,10 @@ description: >
   Create a type/short-slug branch and switch to it — nothing else. No commit, no push, no pull
   request; the working tree is left exactly as it was. Use for "branch", "make a branch", "new
   branch for this".
-allowed-tools: Bash, Read, Glob, Grep
+allowed-tools: >-
+  Bash(git rev-parse *) Bash(git status *) Bash(git symbolic-ref *) Bash(git log *)
+  Bash(git diff *) Bash(git remote get-url *) Bash(git remote set-head *) Bash(git fetch *)
+  Bash(git rev-list *) Bash(grep *) Bash(git switch *)
 ---
 
 Run stages **0 → 1 → 5**, all of them below. **Skip stages 2, 3 and 4** — never commit, never push,

@@ -14,14 +14,18 @@ inventing a slug for work that doesn't exist yet.
 One call — preflight already fetched, so this creates and nothing else:
 
 ```bash
-git switch --create <type>/<slug> <remote>/<base>
+git switch --create <type>/<slug> --no-track <remote>/<base>
 ```
+
+`--no-track`, or the new branch's upstream becomes `<remote>/<base>` and a later bare `git push`
+under `push.default=upstream` lands on `<base>`.
 
 - **A dirty tree branches off HEAD instead**, so the pending work comes along:
   `git switch --create <type>/<slug>`. That case spends one call first, because branching off a HEAD
   that already carries commits the base lacks would pull them silently into the new branch and a
   later pull request — `git rev-list --left-right --count <remote>/<base>...HEAD`, and if the right
-  side isn't `0`, stop and ask rather than creating. Say which of the two forms you used.
+  side isn't `0`, stop and ask rather than creating. A non-zero left side is not a stop, but the
+  branch forks from an outdated HEAD: report `forked N behind <remote>/<base>`. Say which form you used.
 - **The name is already taken** — the create fails and says so. Append `-2`, `-3`, … or pick a
   better slug in one more call. Don't probe for collisions first: the create *is* the probe.
 - Already on a feature branch that holds this work → **reuse it** instead of stacking a second one,

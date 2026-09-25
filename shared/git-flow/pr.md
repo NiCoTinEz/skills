@@ -13,7 +13,8 @@ gh pr list --head "<branch>" --base "<base>" --state open --json url --jq '.[0].
 
 - Missing tracking ref or counts other than `0 0`: stop and report missing, ahead, behind or
   diverged. Offer `push-pr` for a missing branch or unpushed commits. After a successful stage 3,
-  omit those first two lines. A failed push never advances to stage 4.
+  omit those first two lines; `push-pr` ran this call before its push, so it skips it here. A failed
+  push never advances to stage 4.
 - `0` from the third line means **nothing to ship**: stop and report.
 - An existing PR URL means report it and create nothing. Only successful empty output means none —
   `// empty` is what keeps a no-match from printing `null`. API errors stop. Azure DevOps replaces

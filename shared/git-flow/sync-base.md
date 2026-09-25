@@ -21,6 +21,20 @@ return full ref names and, for `ls-remote`, object IDs. Interpret the columns wi
 Keep `'%(refname)'` quoted so the shell passes Git's format literally. Replace `<remote>` before
 running the command and keep the ref prefix quoted as one argument.
 
+## Stage 0 addition — changes that are only line endings
+
+Two more lines in the **same call**. A base branch whose committed blobs disagree with its own
+`.gitattributes` shows files modified forever, and no checkout clears them:
+
+```bash
+git diff --ignore-cr-at-eol --name-only
+git diff --cached --ignore-cr-at-eol --name-only
+```
+
+A modified path that porcelain lists but neither line does is **eol-only**: it does not make the
+repo dirty. Report it as `eol-only <paths>` and continue; if the switch or pull then refuses over
+it, report that failure as it stands. Untracked files still count as dirty.
+
 ## Stage 0 addition — this folder may not be the repo
 
 One more line in the **same call** as stage 0. In a normal repo you ignore it, and it costs nothing
@@ -31,7 +45,7 @@ the whole answer:
 find . -mindepth 2 -maxdepth 2 -name .git
 ```
 
-PowerShell:
+PowerShell — a bare `find` there is Windows' text search, not this:
 
 ```powershell
 Get-ChildItem -Directory | Where-Object { Test-Path (Join-Path $_.FullName .git) } | Select-Object -ExpandProperty Name
@@ -62,14 +76,18 @@ down:
 find . -mindepth 3 -maxdepth 3 -name .git
 ```
 
+```powershell
+Get-ChildItem -Directory | Get-ChildItem -Directory | Where-Object { Test-Path (Join-Path $_.FullName .git) } | ForEach-Object { Join-Path $_.Parent.Name $_.Name }
+```
+
 ### The fan-out — batch each phase across the selected repos
 
 Normally three calls after detection: probe, land, pull, regardless of repo count. Batch any shared
 remote/base fallback probes across all unresolved repos before landing; the four-call budget is
 not a reason to guess. Ask the prune question **once**, after all eligible repos have a preview.
 
-Probe every selected repo with **the full stage 0**, including its remote half and the two preview
-lines above. Prefix every Git command with `git -C "<dir>"`; convention files are read from each
+Probe every selected repo with **the full stage 0**, including its remote half, the two preview
+lines and the two eol lines above. Prefix every Git command with `git -C "<dir>"`; convention files are read from each
 repo's own root, so `repo_root` comes from `git -C "<dir>" rev-parse --show-toplevel` before the
 grep or PowerShell `Select-String` runs. Do not repeat folder detection or CLI checks.
 Use a supplied remote, otherwise initially probe `origin`, then apply the shared remote resolver.
@@ -105,7 +123,7 @@ branch. A failed pull is reported as failed; do not describe its merged-branch l
 ## Eligibility — before the prune question
 
 Apply preflight's dirty-tree and other guardrails **before asking about pruning**. Anything
-modified, staged or untracked makes that repo ineligible: name the paths and skip pruning,
+modified, staged or untracked — eol-only paths excepted — makes that repo ineligible: name the paths and skip pruning,
 switching and pulling. In a single repo, stop; in folder mode, continue only with eligible repos.
 If none remain, stop without the prune question, reporting the `prune` line as `skipped: <reason>`
 (Stage 5 gives its exact shape).
