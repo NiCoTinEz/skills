@@ -60,8 +60,6 @@ git diff --staged --shortstat
    unless a split left content staged for the next commit.
    A hook rejection stops the flow: fix or report it, never `--no-verify`.
 
-4. **Split unrelated logical changes**, one call per commit. Each should be independently
-   revertible and pass the repo's verification gate. Changes that only work together stay together.
-   Group by change, not filename; if a file cannot be split by path, explain its chosen group.
-   Pre-staged unrelated changes need deliberate index regrouping before separate commits; never
-   claim a split while committing the entire original index into the first group.
+4. **Split unrelated logical changes**, one call per commit, each revertible and passing the repo's
+   gate; changes that only work together stay together. Group by change, not filename. Regroup a
+   pre-staged index deliberately — never claim a split while committing all of it in the first.

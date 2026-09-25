@@ -4,11 +4,13 @@ description: >
   Open a pull request for the commits already pushed on the current branch — no new branch, no
   commit, and no push. Use for "pr", "open a PR", "PR this branch".
 allowed-tools: >-
-  Bash(git rev-parse *) Bash(git status *) Bash(git symbolic-ref *) Bash(git log *)
-  Bash(git diff *) Bash(git remote get-url *) Bash(git remote set-head *) Bash(git fetch *)
-  Bash(git rev-list *) Bash(grep *) Bash(gh auth status) Bash(gh repo view *) Bash(gh pr list *)
-  Bash(az version *) Bash(az extension show *) Bash(az repos show *) Bash(az repos list *)
-  Bash(az repos pr list *)
+  Bash(git rev-parse *) Bash(git status --porcelain=v1 --branch)
+  Bash(git symbolic-ref --quiet --short HEAD) Bash(git log --oneline -5) Bash(git diff --shortstat)
+  Bash(git diff --staged --shortstat) Bash(git diff -- *) Bash(git diff --cached -- *)
+  Bash(git remote get-url *) Bash(git symbolic-ref --quiet refs/remotes/*/HEAD)
+  Bash(git fetch origin --no-prune --quiet) Bash(git remote set-head *) Bash(git rev-list *)
+  Bash(grep -nisE *) Bash(gh auth status) Bash(gh repo view *) Bash(gh pr list *) Bash(az version *)
+  Bash(az extension show *) Bash(az repos show *) Bash(az repos list *) Bash(az repos pr list *)
 ---
 
 Run stages **0 → 4 → 5**, all of them below. **Skip stages 1, 2 and 3** — never create or switch

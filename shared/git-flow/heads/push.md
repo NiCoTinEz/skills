@@ -4,17 +4,20 @@ description: >
   Push the commits already on the current branch, setting upstream on the first push — no new
   branch, no commit, no pull request. Use for "push", "push only", "push without a PR".
 allowed-tools: >-
-  Bash(git rev-parse *) Bash(git status *) Bash(git symbolic-ref *) Bash(git log *)
-  Bash(git diff *) Bash(git remote get-url *) Bash(git remote set-head *) Bash(git fetch *)
-  Bash(git rev-list *) Bash(grep *)
+  Bash(git rev-parse *) Bash(git status --porcelain=v1 --branch)
+  Bash(git symbolic-ref --quiet --short HEAD) Bash(git log --oneline -5) Bash(git diff --shortstat)
+  Bash(git diff --staged --shortstat) Bash(git diff -- *) Bash(git diff --cached -- *)
+  Bash(git remote get-url *) Bash(git symbolic-ref --quiet refs/remotes/*/HEAD)
+  Bash(git fetch origin --no-prune --quiet) Bash(git remote set-head *) Bash(git rev-list *)
+  Bash(grep -nisE *)
 ---
 
 Run stages **0 → 3 → 5**, all of them below. **Skip stages 1, 2 and 4** — never create or switch
 branches, never commit, never open a pull request. What ships is exactly what is already committed,
 so a clean tree is the normal case here. Stage 0 skips the `gh` / `az` check. Two tool calls.
 
-**Pushing to the default branch.** Compare the current branch against the `<base>` stage 0 resolved;
-if they match, warn plainly and get explicit confirmation before pushing.
+**Pushing to the default branch.** Compare the current branch against the default branch as stage 0
+defines it; if it matches, warn plainly and get explicit confirmation before pushing.
 
 Offer the follow-up: `push-pr` if a pull request should follow, `commit-push` if work still needed
 committing first.

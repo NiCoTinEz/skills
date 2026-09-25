@@ -7,6 +7,9 @@ git for-each-ref --format='%(refname)' 'refs/remotes/<remote>/'
 git ls-remote --heads --refs "<remote>"
 ```
 
+A convention-named `<base>` absent from the `ls-remote` output is not on `<remote>` — a leftover
+tracking ref doesn't count: drop to the next rung of the base ladder before switching.
+
 Compare **bare branch names**, preserving case and slashes: from the first output, discard
 `refs/remotes/<remote>/HEAD` and strip the exact `refs/remotes/<remote>/` prefix. From the second,
 ignore the object-ID column and strip `refs/heads/` from the ref column. Only names present locally

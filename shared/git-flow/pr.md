@@ -12,9 +12,8 @@ gh pr list --head "<branch>" --base "<base>" --state open --json url --jq '.[0].
 ```
 
 - Missing tracking ref or counts other than `0 0`: stop and report missing, ahead, behind or
-  diverged. Offer `push-pr` for a missing branch or unpushed commits. After a successful stage 3,
-  omit those first two lines; `push-pr` ran this call before its push, so it skips it here. A failed
-  push never advances to stage 4.
+  diverged. Offer `push-pr` for a missing branch or unpushed commits. A skill that runs stage 3
+  already ran this call before pushing, minus those two lines. A failed push never advances further.
 - `0` from the third line means **nothing to ship**: stop and report.
 - An existing PR URL means report it and create nothing. Only successful empty output means none —
   `// empty` is what keeps a no-match from printing `null`. API errors stop. Azure DevOps replaces
@@ -86,10 +85,7 @@ argument this turn skips its ask). Neither has a GitHub equivalent, so this sect
 az repos pr create --organization "https://dev.azure.com/<org>" --project "<project>" --repository "<repo>" --source-branch "<branch>" --target-branch "<base>" --title "<title>" --description "## Summary" "- first point" "" "## Test plan" "- how it was checked" --query "{id:pullRequestId,repo:repository.webUrl}" -o tsv
 ```
 
-- `--description` takes one argument per line; an empty string adds a blank line. No body file.
-  In PowerShell pass a single space `" "` for that blank line, so it is never dropped as an empty
-  argument to a native command.
-- **Description: at most 4,000 characters**, including Markdown, spaces and joined newlines.
-  Count the assembled text before create/update; shorten it while preserving summary and test results.
+- `--description` takes one argument per line; `""` is a blank line (`" "` in PowerShell, which
+  drops empty native arguments). **At most 4,000 characters** joined — count, then shorten it.
 - Report URL: repository web URL + `/pullrequest/` + ID, using the two returned TSV values.
 - Opt-in flags, only when the user asks: `--draft true`, `--squash true`, `--reviewers <email…>`.
