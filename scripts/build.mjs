@@ -246,12 +246,13 @@ for (const name of onDisk) {
     }
     // allowed-tools runs every match without a prompt, so a pattern wider than the command the
     // stage emits pre-approves what the guardrails ban. Every entry is a pinned Bash(...) form.
+    // `git branch -d *` is out: `git branch -d -D <name>` force-deletes an unmerged branch.
     const grants = fm["allowed-tools"] ? fm["allowed-tools"].match(/\S+\([^)]*\)|\S+/g) ?? [] : [];
     for (const grant of grants) {
       const cmd = /^Bash\((.+)\)$/.exec(grant)?.[1];
       if (!cmd) {
         problems.push(`skills/${name}/SKILL.md allowed-tools grants "${grant}" — only pinned Bash(<command>) patterns`);
-      } else if (/^(?:git push|gh pr create|az repos pr create)\b|--amend|--no-verify|--force|--discard-changes|-delete\b|-exec\b|^\S+ \*$|^git (?:add|commit|switch|diff|symbolic-ref|fetch) \*$/.test(cmd)) {
+      } else if (/^(?:git push|gh pr create|az repos pr create|git branch -[dD])\b|--amend|--no-verify|--force|--discard-changes|-delete\b|-exec\b|^\S+ \*$|^git (?:add|commit|switch|diff|symbolic-ref|fetch) \*$/.test(cmd)) {
         problems.push(`skills/${name}/SKILL.md allowed-tools "${grant}" is wider than the stage needs or reaches the remote`);
       }
     }
