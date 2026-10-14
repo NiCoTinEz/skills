@@ -37,16 +37,19 @@ behind local HEAD, stops it with a pointer to `push-pr` instead.
 the end of the cycle the others start. It resolves `<base>` the same four ways they do rather than
 guessing, and a dirty tree stops it: `git switch` would carry uncommitted work onto the base branch
 without a word. Files that differ only in line endings don't count as dirty — they are reported as
-`eol-only` instead, since no checkout can clear them. The one thing it can delete is stale remote-tracking refs, and eligible runs ask once,
-even when nothing is stale — showing the preview before you answer. Ineligible repos skip that step
-and report the reason. Pruning never deletes local branches or changes
-the remote itself. Once it lands on the refreshed base it also lists the local branches now merged into it —
-the one just left usually among them — and reports them with a `git branch -d` line to copy. That is
-a report, not a second delete question: it never runs it.
+`eol-only` instead, since no checkout can clear them. It asks two delete questions, each once per run. First, stale remote-tracking refs: eligible runs
+ask even when nothing is stale, showing the preview before you answer; ineligible repos skip it and
+report the reason. Pruning never deletes local branches or changes the remote. Second, after a
+successful pull, the local branches now merged into the base — the one just left usually among
+them — by name: delete all, the ones you name, or none, always with `git branch -d`, which refuses
+anything not actually merged. Only merged branches are offered; unmerged ones, and merged ones
+checked out in another worktree (which may hold uncommitted work), are left alone. Squash-merged
+branches never list, so that set under-reports.
 
 Run it in a folder that is not a repo but holds them — `projects/`, say — and it asks which
 to sync: all of them, a named few, or none. Each repo keeps its own base and its own dirty check, and
-a dirty one is skipped rather than switched. Remote and base resolution and prune previews run per
+a dirty one is skipped rather than switched. The merged-branch question covers every synced repo at
+once, names grouped by repo. Remote and base resolution and prune previews run per
 repo, with fallback probes batched when needed. Preflight and pull explicitly disable automatic
 pruning; approved pruning is limited to the selected remote's tracking branches, including when
 Git is configured to prune tags.

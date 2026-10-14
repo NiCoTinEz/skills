@@ -85,7 +85,8 @@ Get-ChildItem -Directory | Get-ChildItem -Directory | Where-Object { Test-Path (
 
 ### The fan-out — batch each phase across the selected repos
 
-Normally three calls after detection: probe, land, pull, regardless of repo count. Batch any shared
+Normally three calls after detection: probe, land, pull, regardless of repo count, plus one delete
+call if the branch question approves any. Batch any shared
 remote/base fallback probes across all unresolved repos before landing; the four-call budget is
 not a reason to guess. Ask the prune question **once**, after all eligible repos have a preview.
 
@@ -147,7 +148,7 @@ ask*. Repos dropped during preflight are excluded. Put in the question:
 
 - what would go — the preview's refs grouped by repo and remote, or that nothing is stale;
 - what it touches — **remote-tracking** refs only, for branches already gone from `<remote>`. It
-  never deletes a local branch and never changes anything on the remote;
+  never deletes a local branch (those get their own question after the pull) or touches the remote;
 - that declining still syncs the base; prune is the only thing being decided.
 
 Until the answer arrives, neither block below has run.
@@ -186,8 +187,8 @@ git rev-list --left-right --count "<remote>/<base>...HEAD"
 git branch --merged "<base>"
 ```
 
-**List merged branches only after a successful pull**, in both flows. If pull fails, ignore the
-listing and report failure. `--no-prune` also prevents pull's internal fetch from deleting refs,
+**Use the merged listing only after a successful pull**, in both flows. If pull fails, ignore it,
+report failure, and offer no branch for deletion. `--no-prune` also prevents pull's internal fetch from deleting refs,
 even when pruning was declined or Git configuration enables it.
 
 **Why two, when one call is the rule everywhere else.** `git switch <base>` can fail — a base that
@@ -206,22 +207,26 @@ would move without complaint. The two `HEAD` readings also give the report its r
   divergence.
 - Detached HEAD, merge in progress and rebase in progress are stage 0 guardrails: stop and report.
 
-## Merged local branches — report, never delete
+## Merged local branches — ask once, then `git branch -d`
 
-The listing above names local branches already merged into `<base>`, the branch just left usually
-among them. **This skill does not delete them and does not ask to.** It already spends the run's one
-delete question on the prune, and that question's answer was given on the promise that no local
-branch goes with it; a second delete in the same run turns both into a reflex yes. Report them and
-hand over the command instead:
+The listing above names local branches merged into `<base>`, the one just left usually among them.
+**Only those are ever offered** — an unmerged branch is never touched. Drop `<base>`, the default
+branch (stage 0's definition) and the `*` line, and leave every `+` line alone: that branch is
+checked out in another worktree, which may hold uncommitted work. Nothing left → no question. Otherwise ask **once**, after every pull in the run, separately from the prune:
 
-- `git branch -d` and never `-D` — `-d` refuses a branch that is not actually merged, so the command
-  handed over carries its own guard even if the listing is stale by the time it runs.
-- Squash-merged pull requests leave the branch a non-ancestor of `<base>`, so `--merged` never lists
-  them. The line under-reports rather than over-reports; treat it as a hint, not an inventory, and
-  never present it as the full set of finished branches.
-- `<base>` itself always lists as merged into itself. Drop it, and drop the `*` the current branch
-  carries, before reporting a count.
-- Nothing merged, or nothing beyond `<base>`, means no line at all — an empty `stale` line is noise.
+- the branches by name, grouped by repo in folder mode;
+- the answer can be all of them, the ones named, or none — delete exactly what was chosen;
+- `git branch -d` refuses anything not actually merged; squash-merged branches never list, so the
+  set under-reports. Never `-D`, and never offer a branch the listing didn't name.
+
+One call, batched across repos with `git -C "<dir>"` in folder mode:
+
+```bash
+git branch -d <name> <name>
+git branch --merged "<base>"
+```
+
+A refusal is reported as it stands, never retried.
 
 ## Stage 5 — Report
 
@@ -231,16 +236,16 @@ Name the branch it came from and the range pulled. One compact block, no prose p
 branch    development  (was feat/add-cache-retry)
 prune     <remote>  2 stale refs removed  feat/add-cache-retry, fix/null-ref-login
 pull      <remote>/development  4 new commits  a1b2c3d..e4f5a6b
-stale     2 local branches merged into development
-          feat/add-cache-retry, fix/null-ref-login
-          delete: git branch -d feat/add-cache-retry fix/null-ref-login
+deleted   2 local branches  feat/add-cache-retry, fix/null-ref-login
 ```
 
 The `prune` line always appears. A single repo shows `prune <remote> <result>`; folder mode shows one
 global `prune <result>` unless removals differ per remote, then group them. `<result>` is
 `skipped: <reason>` if eligibility prevented the question, `declined` if refused, `nothing stale`,
 `N stale refs removed  <names>`, or `failed: <error>` — never imply an approval or an attempted fetch
-succeeded. The `stale` line appears only when merged local branches remain after a successful pull.
+succeeded. After the branch question: `deleted N local branches  <names>`, `kept N local branches
+merged into <base>  <names>` when declined, `refused <name>: <reason>` per refusal, and
+`in use <names>` for `+` branches left in their worktrees.
 
 A folder of repos reports a header and one line per repo, dirty ones included so the skips are
 visible:
@@ -252,14 +257,10 @@ repo      repo-a  main  4 new commits  a1b2c3d..e4f5a6b
 repo      repo-b  main  already up to date
 dirty     repo-c  README.md — not switched, not pulled
 failed    repo-d  pull refused: local and remote base have diverged
-stale     repo-a 3, repo-b 1
+deleted   repo-a 3, repo-b 1
 ```
 
-**A folder run reports stale branches as counts only** — no names, no delete command. Fifteen repos'
-worth of branch names is a wall nobody audits, and one `git branch -d` line per repo is not a thing
-to paste. Name them by running the skill in the one repo that matters.
+The folder report gives counts; the question before it already named every branch.
 
 Already current → `pull      already up to date`. Already on `<base>` → say so on the `branch` line
-instead of naming a previous branch. **Deleting the branch you left is still not this skill's job**,
-even when its pull request has merged and the `stale` line names it — that line is a report and a
-command to copy, not an offer to run it.
+instead of naming a previous branch.
